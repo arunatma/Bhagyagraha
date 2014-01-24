@@ -376,4 +376,4 @@ def is_leap_year(given_year):
 		return 1
 	
 def get_ramc(given_date):
-	
+	return 0

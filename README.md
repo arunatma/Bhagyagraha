@@ -1,9 +1,9 @@
 README.md
 
-Bhagyagraha
+##Bhagyagraha
 
-Application which calculates
-	* planetary positions
-	* Rasi, Navamsa and Bhava, as per Indian Hindu Calendar
-	* Tamil Date, Saka Date
-	* Nakshatra, Yogam, Karanam
+##Application which calculates
+	1. planetary positions
+	2. Rasi, Navamsa and Bhava, as per Indian Hindu Calendar
+	3. Tamil Date, Saka Date
+	4. Nakshatra, Yogam, Karanam

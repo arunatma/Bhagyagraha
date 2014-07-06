@@ -10,8 +10,12 @@ total_yogams = 27.0
 total_tamil_years = 60.0
 tamil_year_base = 1987.0
 
+minutes_in_degree = 60.0
+seconds_in_minute = 60.0
+seconds_in_degree = seconds_in_minute * minutes_in_degree
+
 def degminsec_to_deg(deg, min, sec):
-	float_deg = deg + (min / constants.minutes_in_degree) + (sec / constants.seconds_in_degree)
+	float_deg = deg + (min / minutes_in_degree) + (sec / seconds_in_degree)
 	float_deg %= full_circle
 	return float_deg
 	
@@ -26,7 +30,7 @@ IST_longitude = 82.5
 seconds_in_day = 24 * 3600.0
 ist_offset_in_sec = IST_longitude / 360.0 * seconds_in_day
 
-deg_angle_to_time_sec = (seconds_in_day)/deg_in_full_circle
+deg_angle_to_time_sec = (seconds_in_day) / full_circle
 deg_angle_in_one_day = 360.0		# 360 degrees in one day
 min_angle_in_one_day = deg_angle_in_one_day * 60.0
 
@@ -46,13 +50,9 @@ moon_eccentricity =  0.0549
 precession_per_year_in_sec = 50.2564
 apse_movement_per_year_in_sec = 11.63
 
-minutes_in_degree = 60.0
-seconds_in_minute = 60.0
-seconds_in_degree = seconds_in_minute * minutes_in_degree
-
 deg_in_house = 30		# 12 houses * 30 degrees = 360
 
-arcsec_in_circle = seconds_in_degree * deg_in_full_circle
+arcsec_in_circle = seconds_in_degree * full_circle
 arcsec_in_radian = arcsec_in_circle / (2 * math.pi)
 
 sec_to_rad_conv_factor = (rads_per_degree / 3600.0)

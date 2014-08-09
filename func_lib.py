@@ -71,7 +71,8 @@ def get_mean_anomaly_degs(apse_position_degs, mean_long_planet_degs):
     # Calculate the Solar years (Tropical Year) since 1900 
     # ApsePosition is calculated as Epoch + Years * 11.63 seconds
     # ApsePosition - Mean Longitude of Sun is "Mean Anomaly"
-    mean_anomaly_degs = find_diff_degs(apse_position_degs, mean_long_planet_degs)
+    mean_anomaly_degs = find_diff_degs(apse_position_degs, 
+        mean_long_planet_degs)
     return mean_anomaly_degs
 
 def get_days_from_epoch(localtm):
@@ -259,12 +260,10 @@ def sun_long_correction(true_long_sun_degs, net_corr_min, helio_vel_in_secs):
         
     return corrected_true_long
     
-def calc_tamil_date(given_time, fine_tuning = True):  # given_time is of type "datetime"
-    
+def calc_tamil_date(given_time, fine_tuning = True):  
+    # given_time is of type "datetime"
     original_time = given_time
-    
     sunrise_time, sunset_time = get_sun_rise_set(given_time)
-    
     sun_long_pos = sun_long_correction(given_time)
     
     if sunrise_time <= given_time <= sunset_time:
@@ -575,8 +574,10 @@ def get_house_positions(nirayana_lagn,  nirayana_dhasa, latitude_degs,
     if (sine_value > 1):
         nirayana_diff = find_diff_degs(nirayana_lagn, nirayana_dhasa)
         adder_for_h10h11 = nirayana_diff / 3.0
-        house_positions[10] = find_sum_degs([house_positions[9], adder_for_h10h11])
-        house_positions[11] = find_sum_degs([house_positions[10], adder_for_h10h11])
+        house_positions[10] = \
+            find_sum_degs([house_positions[9], adder_for_h10h11])
+        house_positions[11] = \
+            find_sum_degs([house_positions[10], adder_for_h10h11])
         
         adder_for_h1h2 = find_diff_degs(60, adder_for_h10h11)
         house_positions[1] = find_sum_degs([house_positions[0], adder_for_h1h2])
@@ -816,40 +817,6 @@ def get_true_long_planet(mean_long_planet_degs, mandaphalam_secs):
     true_long_planet_degs =  find_sum_degs([mean_long_planet_degs, 
         mandaphalam_degs])
     
-def mars_positions():
-    lsma = constants.mars_length_semi_major_axis
-    eccentricity = constants.mars_eccentricity
-    apse_motion = constants.mars_apse_motion
-    node_motion = constants.mars_node_motion
-    net_corr_mins = constants.mars_nc
-    
-    mmle = constants.mean_mars_long_at_epoch
-    mmae = constants.mean_mars_apse_at_epoch
-    mmne = constants.mean_mars_node_at_epoch
-    
-    orbit_degs = constants.mars_orbit_inclination_degs
-    
-    mean_long_mars_degs = get_mean_longitude(epoch_days, 
-        constants.mars_rev_days, constants.mean_mars_long_at_epoch)
-    
-    mean_long_mars_degs = add_correction(mean_long_mars_degs, net_corr_mins,
-        mean_ketu_degs)
-        
-    apse_position_degs = get_apse_position_degs(mmae, apse_motion, 
-        years_elapsed)
-    mean_anomaly_degs = get_mean_anomaly_degs(apse_position_degs, 
-        mean_long_mars_degs)
-    mean_anomaly_rads = mean_anomaly_degs * constants.rads_per_degree
-    mandaphalam_secs = get_equation_of_centre(eccentricity, mean_anomaly_rads)
-    true_long_mars_degs = get_true_long_planet(mean_long_mars_degs, 
-        mandaphalam_secs)
-    helio_velocity_mars = get_helio_velocity(net_corr_mins, mean_anomaly_degs,
-        eccentricity)
-    radius_vector_mars = get_radius_vector(apse_position_degs, 
-        true_long_mars_degs, eccentricity, lsma)
-    angle_mars_node_degs, true_long_mars_degs = get_longitude_along_ecliptic(
-        mmne, true_long_mars_degs, orbit_degs, node_motion)
-    
 def get_helio_velocity(net_corr_mins, ma_degs, e):
     # ma = mean anomaly, and e = eccentricity
     ma = ma_degs * constants.rads_per_degree
@@ -866,10 +833,11 @@ def get_radius_vector(apse_position_degs, tlpd, e, lsma):
     # tlpd: True Longitude of the Planet in degs
     theta_degs = find_diff_degs(apse_position_degs, tlpd)
     theta_rads = theta_degs * constants.rads_per_degree
-    rad_vector =  lsma * (1.0 - e * e) / (1.0 - e * math.cos(theta_rads)) )
+    rad_vector =  lsma * (1.0 - e * e) / (1.0 - e * math.cos(theta_rads))
     return rad_vector
 
-def get_longitude_along_ecliptic(epoch_node_degs, tlpd, orbit_degs, node_vel, years_elapsed):
+def get_longitude_along_ecliptic(epoch_node_degs, tlpd, orbit_degs, 
+                                 node_vel, years_elapsed):
     node_motion_secs = (node_vel * years_elapsed) + 0.5
     # find the absolute of the node_motion
     # Todo:  This could possibly be wrong!
@@ -886,11 +854,11 @@ def get_longitude_along_ecliptic(epoch_node_degs, tlpd, orbit_degs, node_vel, ye
     return angle_node_planet_degs, long_along_ecliptic_degs
 
 def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads, 
-                      node_planet_rads, rad_vec, inf, pos, rad_vec_sun,
+                      node_planet_rads, rad_vec, inferior, pos, rad_vec_sun,
                       true_long_sun_degs, hvel_sun_degs):
     pm_rads = math.asin(math.sin(inc_rads) * math.sin(node_planet_rads))
     sm = rad_vec * math.cos(pm_rads)
-    se = rad_vec_sun
+    se = rad_vec_sun # Earth with respect to Sun
     gama_se_degs = find_sum_degs([true_long_sun_degs, 180])
     gama_se_rads = gama_se_degs * constants.rads_per_degree
     gama_sm_degs = true_long_planet_degs
@@ -908,7 +876,7 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
     angle_sme_rads = math.asin(sine_value)
     angle_sme_degs = angle_sme_rads * constants.degs_per_radian
     
-    if inf == 0: # Superior Planet
+    if inferior == 0: # Superior Planet (Outside earth orbit)
         if angle_sme_degs > 90.0:
             angle_sme_degs = find_diff_degs(180, angle_sme_degs)
     else:
@@ -927,16 +895,86 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
                 angle_sme_degs = find_diff_degs(-180, angle_sme_degs)
 
     angle_sme_rads = angle_sme_degs * constants.rads_per_degree
-    true_long_planet_degs = find_sum_degs([true_long_planet_degs, angle_sme_degs])
+    true_long_planet_degs = find_sum_degs([true_long_planet_degs, 
+        angle_sme_degs])
         
     sine_value = math.sin(inc_rads) * math.sin(node_planet_rads)
-    planet_rads = math.atan((rad_vec / em) * math.sin(sine_value))
-    planet_degs = planet_rads * constants.degs_per_radian
+    planet_lat_rads = math.atan((rad_vec / em) * math.sin(sine_value))
+    planet_lat_degs = planet_rads * constants.degs_per_radian
 
     vel_diff_degs = find_diff_degs(hvel_degs, hvel_sun_degs)
     geo_vel_adder = ((se / em) * (math.cos(angle_mse_rads) / 
-                        math.cos(angle_sme_rads)) - \
-                        (sm * se / (em * em * em)) * ((math.sin(angle_mse_rads)) ** 2) / 
-                        math.cos(angle_sme_rads)) * vel_diff_degs * (1 / 1.1)
+        math.cos(angle_sme_rads)) - \
+        (sm * se / (em * em * em)) * ((math.sin(angle_mse_rads)) ** 2) / 
+        math.cos(angle_sme_rads)) * vel_diff_degs * (1 / 1.1)
     geo_vel_degs = find_sum_degs([hvel_degs, geo_vel_adder])
-    return geo_vel_degs, true_long_planet_degs
+    return geo_vel_degs, true_long_planet_degs, planet_lat_degs
+    
+def jupiter_correction(mean_long_degs):
+  float f1, f2;
+  float rad = (PI/180.0);
+  float t = YearsFromBirth(1558, 3);
+  float H = 18.129 * (t - 241.75) - (41+(11/60.0));
+  float S_J = 0.4074926;
+
+  f1 = House2Deg(Planet);
+  adj_degs = 20.8 * math.sin(t * S_J * rad)
+      - 1.3783 * math.sin(H * rad)
+      + 3.405 * math.sin(2.0 * H * rad)
+      + 0.283 * sin(3.0 * H * rad);
+  f2 = f2/60.0;
+  return(mean_long_degs + adj_degs);
+
+def saturn_correction():
+    
+
+def planet_positions(planet, epoch_days, mean_ketu_degs, years_elapsed, radius_vec_sun,
+                    true_long_sun_degs, hvel_sun_degs):
+    lsma = planet.length_semi_major_axis
+    eccentricity = planet.eccentricity
+    apse_motion = planet.apse_motion
+    node_motion = planet.node_motion
+    net_corr_mins = planet.nc
+    
+    mmle = planet.mean_long_at_epoch
+    mmae = planet.mean_apse_at_epoch
+    mmne = planet.mean_node_at_epoch
+    
+    orbit_degs = planet.orbit_inclination_degs
+    
+    mean_long_degs = get_mean_longitude(epoch_days, planet.rev_days, 
+                                        planet.mean_long_at_epoch)
+    
+    if planet.name == "JUPITER":
+        mean_long_degs = jupiter_correction(mean_long_degs)
+
+    if planet.name == "SATURN":
+        mean_long_degs = saturn_correction(mean_long_degs)
+                                        
+    mean_long_degs = add_correction(mean_long_degs, net_corr_mins,
+                                    mean_ketu_degs)
+        
+    apse_position_degs = get_apse_position_degs(mmae, apse_motion, 
+                                                years_elapsed)
+    mean_anomaly_degs = get_mean_anomaly_degs(apse_position_degs, 
+                                              mean_long_degs)
+    mean_anomaly_rads = mean_anomaly_degs * constants.rads_per_degree
+    mandaphalam_secs = get_equation_of_centre(eccentricity, mean_anomaly_rads)
+    true_long_degs = get_true_long_planet(mean_long_degs, 
+                                          mandaphalam_secs)
+    hvel_degs = get_helio_velocity(net_corr_mins, mean_anomaly_degs,
+                                   eccentricity)
+    radius_vec = get_radius_vector(apse_position_degs, true_long_degs, 
+                                   eccentricity, lsma)
+    mars_to_node_degs, true_long_degs = get_longitude_along_ecliptic(mmne, 
+        true_long_degs, orbit_degs, node_motion)
+    mars_to_node_rads = mars_to_node_degs * constants.rads_per_degree
+    
+    inferior = 0
+    if planet.name == "MERCURY" or  planet.name == "VENUS":
+        inferior = 1
+        
+    geo_vel_degs, true_long_degs, mars_lat_degs = get_geo_longitude(
+        true_long_degs, hvel_degs, inc_rads, mars_to_node_rads, radius_vec, 
+        inferior, radius_vec_sun, true_long_sun_degs, hvel_sun_degs)
+    

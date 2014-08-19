@@ -20,6 +20,9 @@ def degminsec_to_deg(deg, min, sec):
 	return float_deg
 	
 epoch = datetime.datetime(1900, 1, 1)
+jupiter_base = datetime.datetime(1558, 4, 1)
+saturn_base = datetime.datetime(1558, 4, 1) # Same as Jupiter Base
+
 precession_at_epoch = degminsec_to_deg(22, 27, 44)
 apse_position_at_epoch = degminsec_to_deg(2*30.0 + 18, 45, 32)
 mean_sun_long_at_epoch = degminsec_to_deg(8*30.0 + 17, 58, 26)

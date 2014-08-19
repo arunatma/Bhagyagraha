@@ -39,8 +39,11 @@ def get_local_time(datetimeIST, local_longitude, dirn):
     localtm = datetimeIST - datetime.timedelta(0, diff_time_in_sec)
     return localtm
     
-def get_years_elapsed(datetimeIST):
-    time_elapsed = datetimeIST - constants.epoch
+def get_years_elapsed(datetimeIST, base_position):
+    # Call this function using the following command for most needs
+    # get_years_elapsed(datetimeIST, constants.epoch)
+    
+    time_elapsed = datetimeIST - base_position
     years_elapsed = (time_elapsed.days + 
         time_elapsed.seconds / constants.seconds_in_day) / \
         constants.solar_days_in_year
@@ -910,26 +913,41 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
     geo_vel_degs = find_sum_degs([hvel_degs, geo_vel_adder])
     return geo_vel_degs, true_long_planet_degs, planet_lat_degs
     
-def jupiter_correction(mean_long_degs):
-  float f1, f2;
-  float rad = (PI/180.0);
-  float t = YearsFromBirth(1558, 3);
-  float H = 18.129 * (t - 241.75) - (41+(11/60.0));
-  float S_J = 0.4074926;
+def jupiter_correction(mean_long_degs, datetimeIST):
+    t = get_years_elapsed(datetimeIST, constants.jupiter_base)
+    h = 18.129 * (t - 241.75) - (41 + (11/60.0));
+    sj = 0.4074926;
 
-  f1 = House2Deg(Planet);
-  adj_degs = 20.8 * math.sin(t * S_J * rad)
-      - 1.3783 * math.sin(H * rad)
-      + 3.405 * math.sin(2.0 * H * rad)
-      + 0.283 * sin(3.0 * H * rad);
-  f2 = f2/60.0;
-  return(mean_long_degs + adj_degs);
+    t_rad = t * constants.rads_per_degree
+    h_rad = h * constants.rads_per_degree
+    
+    adj_min = 20.8 * math.sin(t_rad * sj) - 1.3783 * math.sin(h_rad) \
+        + 3.4050 * math.sin(2.0 * h_rad)  + 0.2830 * math.sin(3.0 * h_rad);
+    
+    adj_deg = adj_min / 60.0;
+    
+    return (mean_long_degs + adj_degs)
 
-def saturn_correction():
+def saturn_correction(mean_long_degs, datetimeIST):
+    t = get_years_elapsed(datetimeIST, constants.saturn_base)
+    x1 = 168.48 - 5.8945 * t
+    x2 = 243.15 - 11.794 * t
+    sj = 0.4074926;
+    
+    t_rad  =  t * constants.rads_per_degree
+    x1_rad = x1 * constants.rads_per_degree
+    x2_rad = x2 * constants.rads_per_degree
+
+    adj_min = - 48.7 * math.sin(t_rad * sj) \
+        +  7.00 * math.sin(x1_rad) + 10.85 * math.sin(x2_rad);
+
+    adj_deg = adj_min / 60.0;
+
+    return (mean_long_degs + adj_degs)
     
 
 def planet_positions(planet, epoch_days, mean_ketu_degs, years_elapsed, radius_vec_sun,
-                    true_long_sun_degs, hvel_sun_degs):
+                    true_long_sun_degs, hvel_sun_degs, datetimeIST):
     lsma = planet.length_semi_major_axis
     eccentricity = planet.eccentricity
     apse_motion = planet.apse_motion
@@ -946,10 +964,10 @@ def planet_positions(planet, epoch_days, mean_ketu_degs, years_elapsed, radius_v
                                         planet.mean_long_at_epoch)
     
     if planet.name == "JUPITER":
-        mean_long_degs = jupiter_correction(mean_long_degs)
+        mean_long_degs = jupiter_correction(mean_long_degs, datetimeIST)
 
     if planet.name == "SATURN":
-        mean_long_degs = saturn_correction(mean_long_degs)
+        mean_long_degs = saturn_correction(mean_long_degs, datetimeIST)
                                         
     mean_long_degs = add_correction(mean_long_degs, net_corr_mins,
                                     mean_ketu_degs)

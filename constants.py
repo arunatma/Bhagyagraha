@@ -15,9 +15,14 @@ seconds_in_minute = 60.0
 seconds_in_degree = seconds_in_minute * minutes_in_degree
 
 def degminsec_to_deg(deg, min, sec):
-	float_deg = deg + (min / minutes_in_degree) + (sec / seconds_in_degree)
-	float_deg %= full_circle
-	return float_deg
+    """
+    Converts a degree, minute and second combination to a fractional degree
+    Input: Degree, Minute and Second
+    Output: A single floating point equivalent degree
+    """
+    float_deg = deg + (min / minutes_in_degree) + (sec / seconds_in_degree)
+    float_deg %= full_circle
+    return float_deg
 	
 epoch = datetime.datetime(1900, 1, 1)
 jupiter_base = datetime.datetime(1558, 4, 1)
@@ -26,7 +31,7 @@ saturn_base = datetime.datetime(1558, 4, 1) # Same as Jupiter Base
 precession_at_epoch = degminsec_to_deg(22, 27, 44)
 apse_position_at_epoch = degminsec_to_deg(2*30.0 + 18, 45, 32)
 mean_sun_long_at_epoch = degminsec_to_deg(8*30.0 + 17, 58, 26)
-mean_sun_rise = datetime.datetime(1, 1, 1, 6, 0, 0)
+epoch_sun_rise = datetime.datetime(1900, 1, 1, 6, 0, 0)
 time_twelve = datetime.datetime(1, 1, 1, 12, 0, 0)
 
 IST_longitude = 82.5
@@ -63,6 +68,7 @@ moon_motion = (790.0 + (35.0 / 60.0))
 apse_motion = (6.0 + (41.0 / 60.0))
 sun_motion = (59.0 + (8.0 / 60.0))
 
+earth_lsma = 1                  # Length of Semi Major Axis 
 
 moon_rev_days = 27.32166
 mean_moon_long_at_epoch = degminsec_to_deg(8*30.0 + 17, 51, 16)
@@ -77,7 +83,7 @@ moon_eccentricity =  0.0549
 
 class Mars:
     name = "MARS"
-    length_semi_major_axis = 1.5237
+    length_semi_major_axis = 1.5237     # In terms of Earth's Semi Major Axis
     eccentricity = 0.09331 
     rev_days = 686.98
     apse_motion = 16.01
@@ -90,7 +96,7 @@ class Mars:
 
 class Mercury:
     name = "Mercury"
-    length_semi_major_axis = 0.3871
+    length_semi_major_axis = 0.3871     # In terms of Earth's Semi Major Axis
     eccentricity = 0.20561
     rev_days = 87.969
     apse_motion = 5.74

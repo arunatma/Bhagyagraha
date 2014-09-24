@@ -302,6 +302,10 @@ def get_sun_rise_set(given_time):
     return 0, 0
     
 def calc_tamil_date(localtm, fine_tuning = True):  
+    """
+    Return Tamil Day, Month and Year
+    Input: Local Time
+    """
     # localtm is of type "datetime"
     original_time = localtm
     given_time = localtm
@@ -395,7 +399,10 @@ def calc_tamil_date(localtm, fine_tuning = True):
     
 
 def get_yogam_karanam_thithi(sun_posn_degs, moon_posn_degs):
-    
+    """
+    Return Yogam, Karanam and Thithi numbers
+    Input: Sun Position and Moon Position in degrees
+    """
     # There are totally 30 thithis in Shukla and Krishna Paksham combined
     # So divide the thithi angle by 12 to get the thithi number
     thithi_angle = find_diff_degs(sun_posn_degs, moon_posn_degs)
@@ -419,6 +426,10 @@ def get_yogam_karanam_thithi(sun_posn_degs, moon_posn_degs):
     return yogam_num, karanam_num, thithi_num
 
 def calc_saka_date(given_date):
+    """
+    Return Saka Day, Month and Year
+    Input: Current Date
+    """
     saka_max = [21, 20, 22, 21, 22, 22, 23, 23, 23, 23, 22, 22]
     saka_add = [11, 9, 10, 10, 10, 9, 9, 9, 8, 9, 9, 10]
     
@@ -443,9 +454,16 @@ def calc_saka_date(given_date):
     return saka_day, saka_month_num, saka_year
     
 def get_kali_year(saka_year):
+    """
+    Return Kali Year, given the Saka Year
+    """
     return (saka_year + 3180)
     
 def is_leap_year(given_year):
+    """
+    Return 1 if given year is leap, else 0
+    (Note: This function does not return True / False)
+    """
     if year % 4 != 0 or (year % 100 == 0 and year % 400 != 0):
         return 0
     else:
@@ -453,7 +471,9 @@ def is_leap_year(given_year):
     
 def get_ramc(given_date, local_longitude, mean_long_sun_degs, dirn,
     precsn_birth_degs, lt_corr_degs, is_southern_hemisphere):
-    
+    """
+    Return RAMC in degrees
+    """
     if re.match(r"w|(west)", dirn, re.IGNORECASE):
         local_longitude = -local_longitude
       
@@ -474,6 +494,10 @@ def get_ramc(given_date, local_longitude, mean_long_sun_degs, dirn,
     return ramc_degs
     
 def get_local_time_correction(localtm):
+    """
+    Return Local Time Correction in degrees 
+    Input: Local Time
+    """
     time_twelve = constants.time_twelve
     time_twelve = time_twelve.replace(day = localtm.day, month = localtm.month,
         year = localtm.year)
@@ -503,6 +527,9 @@ def get_local_time_correction(localtm):
     
 def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs, 
     is_southern_hemisphere):
+    """
+    Return Nirayana Lagnam in degrees
+    """
     
     ramc_rads = ramc_degs * constants.rads_per_degree
     latitude_rads = latitude_degs * constants.rads_per_degree
@@ -529,7 +556,7 @@ def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs,
         gaman_degs = find_sum_degs([gaman_degs, 180])    
     
     sayana_lagn = gaman_degs
-    nirayana_lagn = find_diff_digs(sayana_lagn, precsn_birth_degs)
+    nirayana_lagn = find_diff_degs(sayana_lagn, precsn_birth_degs)
     # Nirayana Lagn is the House Position of Lagn (Planet 0)
     
     #Planets[0][0] = NiraLagn
@@ -538,6 +565,9 @@ def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs,
 
 def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs, 
     is_southern_hemisphere):
+    """
+    Return Nirayana Dhasa in degrees
+    """
     
     ramc_rads = ramc_degs * constants.rads_per_degree
     omega_rads = constants.omega_rads
@@ -558,7 +588,7 @@ def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs,
         hlong_degs = find_sum_degs([hlong_degs, 180])
         
     sayana_dhasa = hlong_degs
-    nirayana_dhasa = find_diff_digs(sayana_dhasa, precsn_birth_degs)
+    nirayana_dhasa = find_diff_degs(sayana_dhasa, precsn_birth_degs)
 
     # Nirayana Dhasa is the House Position of Planet 9
     return nirayana_dhasa
@@ -566,8 +596,11 @@ def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs,
     
 def calculate_house(sine_value, ramc_degs, ramc_adder, pole_id, 
     precsn_birth_degs, is_southern_hemisphere):
-    # Todo: give proper names for ramc_adder and pole_id arguments
+    """
+    Return House Position in degrees
+    """
     
+    # Todo: give proper names for ramc_adder and pole_id arguments
     omega_rads = constant.omega_rads
     pole_rads = math.asin(sine_value)
     # Todo: 30 needs to be replaced with appropriate value
@@ -600,6 +633,10 @@ def calculate_house(sine_value, ramc_degs, ramc_adder, pole_id,
     
 def get_house_positions(nirayana_lagn,  nirayana_dhasa, latitude_degs, 
     ramc_degs, precsn_birth_degs, is_southern_hemisphere):
+    """
+    Return a list of 12 house positions
+    """
+    
     # house_positions is a list containing 12 elements
     # initializing the default value to 0
     house_positions = [0] * 12
@@ -643,6 +680,9 @@ def get_house_positions(nirayana_lagn,  nirayana_dhasa, latitude_degs,
     return house_positions    
     
 def get_bhava_positions(house_positions, planet_positions):
+    """
+    Return a list of 12 Bhava Positions
+    """
     
     house1_degs = [0] * 12
     house2_degs = [0] * 12
@@ -674,6 +714,10 @@ def get_bhava_positions(house_positions, planet_positions):
     return bhava_positions
     
 def get_navamsa_positions(planet_positions):
+    """
+    Return a list of 12 Navamsa Positions
+    """
+
     navams_positions = list()
     for i in range(0, 12):
         planet_pos_degs = planet_positions[i]
@@ -685,6 +729,10 @@ def get_navamsa_positions(planet_positions):
     return navamsa_positions
     
 def get_rasi_positons(planet_positions):
+    """
+    Return a list of 12 Rasi Positions
+    """
+
     rasi_positions = list()
     for i in range(0, 12):
         planet_pos_degs = planet_positions[i]

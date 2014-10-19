@@ -1,19 +1,30 @@
-import constants
+import constants as cn
 import re
-import datetime
+import datetime as dt
 import math
+
+def get_input_params():
+    """ Return input parameters in dictionary data type """
+    input_params = dict()
+    input_params["in_datetime"] = dt.datetime(2014, 9, 12, 17, 30)
+    input_params["diff_from_gst_in_sec"] = 5 * 3600 + 30 * 60
+    input_params["long_degs"] = 78.2
+    input_params["long_dirn"] = "E"
+    input_params["lat_degs"] = 11.66
+    input_params["lat_dirn"] = "N"
+
+    return input_params
 
 def find_sum_degs(degs_list):
     """
     Return the sum of degrees; Mod to 360
     Input: A list containing individual elements, to be summed up
     """
-    
     sum_angle = 0
     for angle_degs in degs_list:
         sum_angle += angle_degs
     
-    sum_angle %= constants.full_circle
+    sum_angle %= cn.full_circle
     return sum_angle
 
 def find_diff_degs(deg1, deg2):
@@ -21,8 +32,7 @@ def find_diff_degs(deg1, deg2):
     Return the difference in degrees; Mod to 360; always positive.
     Input: Two numbers: deg1 and deg2
     """
-
-    deg_result = (deg1 - deg2) % constants.full_circle
+    deg_result = (deg1 - deg2) % cn.full_circle
     return deg_result
 
 def get_time_in_IST(in_datetime, diff_from_gst_in_sec, dirn):
@@ -34,11 +44,11 @@ def get_time_in_IST(in_datetime, diff_from_gst_in_sec, dirn):
     # get_time_in_IST converts to IST, given local time
     if re.match(r"w|(west)", dirn, re.IGNORECASE):
         diff_from_gst_in_sec = -diff_from_gst_in_sec
-    time_adj_sec = constants.ist_offset_in_sec - diff_from_gst_in_sec
-    datetimeIST = in_datetime + datetime.timedelta(0, time_adj_sec)
-    return datetimeIST
+    time_adj_sec = cn.ist_offset_in_sec - diff_from_gst_in_sec
+    ist_time = in_datetime + dt.timedelta(0, time_adj_sec)
+    return ist_time
     
-def get_local_time(datetimeIST, local_longitude, dirn):
+def get_local_time(ist_time, local_longitude, dirn):
     """
     Convert Indian Standard Time to local time (datetime type)
     Input: IST (datetime type), local longitude, E/W dirn
@@ -49,23 +59,22 @@ def get_local_time(datetimeIST, local_longitude, dirn):
     # get_time_in_IST converts to IST, given local time
     if re.match(r"w|(west)", dirn, re.IGNORECASE):
         local_longitude = -local_longitude
-    diff_longitude = constants.IST_longitude - local_longitude
-    diff_time_in_sec = diff_longitude * constants.deg_angle_to_time_sec
-    localtm = datetimeIST - datetime.timedelta(0, diff_time_in_sec)
+    diff_longitude = cn.IST_longitude - local_longitude
+    diff_time_in_sec = diff_longitude * cn.deg_angle_to_time_sec
+    localtm = ist_time - dt.timedelta(0, diff_time_in_sec)
     return localtm
     
-def get_years_elapsed(datetimeIST, datetimeEpoch):
+def get_years_elapsed(ist_time, epoch_time):
     """
     Return time elapsed in years (fractional), since a given base date
     Input: IST in datetime, base date in datetime
     """
     # Call this function using the following command for most needs
-    # get_years_elapsed(datetimeIST, constants.epoch)
+    # get_years_elapsed(ist_time, cn.epoch)
     
-    time_elapsed = datetimeIST - datetimeEpoch
+    time_elapsed = ist_time - epoch_time
     years_elapsed = (time_elapsed.days + 
-        time_elapsed.seconds / constants.seconds_in_day) / \
-        constants.solar_days_in_year
+        time_elapsed.seconds / cn.seconds_in_day) / cn.solar_days_in_year
     return years_elapsed
     
 def get_precession_degs(years_elapsed):
@@ -73,9 +82,9 @@ def get_precession_degs(years_elapsed):
     Return the current precession in degrees
     Input: Years elapsed since Epoch
     """
-    precession_movement = (constants.precession_per_year_in_sec 
-        * years_elapsed) / constants.seconds_in_degree
-    precession_degs = constants.precession_at_epoch + precession_movement
+    precession_movement = (cn.precession_per_year_in_sec 
+        * years_elapsed) / cn.seconds_in_degree
+    precession_degs = cn.precession_at_epoch + precession_movement
     return precession_degs 
 
 def get_apse_position_degs(apse_at_epoch, apse_motion, years_elapsed):
@@ -86,8 +95,7 @@ def get_apse_position_degs(apse_at_epoch, apse_motion, years_elapsed):
     Input: Apse Position at Epoch (deg), Apse Movement per year (sec), years
            elapsed since Epoch.
     """
-    apse_movement_degs = (apse_motion * years_elapsed) / \
-        constants.seconds_in_degree
+    apse_movement_degs = (apse_motion * years_elapsed) / cn.seconds_in_degree
     apse_position_degs = find_sum_degs([apse_at_epoch, apse_movement_degs])
     return apse_position_degs
     
@@ -105,31 +113,17 @@ def get_days_from_epoch(localtm):
     """
     Return the days since Epoch Sun Rise, given local time in datetime type
     """
-    time_elapsed = localtm - constants.epoch_sun_rise
-    epoch_days = (time_elapsed.days + 
-        time_elapsed.seconds / constants.seconds_in_day)
+    time_elapsed = localtm - cn.epoch_sun_rise
+    epoch_days = (time_elapsed.days + time_elapsed.seconds / cn.seconds_in_day)
     return epoch_days
-    
-def get_mean_longitude_sun(localtm):
-    """
-    Return the mean longitude of sun, given local time in datetime type
-    """
-    msle = constants.mean_sun_long_at_epoch
-    epoch_days = get_days_from_epoch(localtm)
-    num_revolutions = epoch_days / constants.sidereal_days_in_year
-    angle_movement = (num_revolutions * constants.full_circle) 
-    
-    # find_sum_degs needs arguments to be passed in a list
-    mean_long_sun_degs = find_sum_degs([msle, angle_movement])
-    return mean_long_sun_degs
-    
+        
 def get_equation_of_centre(e, mean_anomaly_degs):
     """
     Return the mean longitude of sun, given local time in datetime type
     """
-    ma = mean_anomaly_degs * constants.rads_per_degree
+    ma = mean_anomaly_degs * cn.rads_per_degree
     
-    mandaphalam_secs = constants.arcsec_in_radian * \
+    mandaphalam_secs = cn.arcsec_in_radian * \
         (e * math.sin(ma) / 2.0 * (4.0 - 5.0 * e * math.cos(ma)) + \
         math.pow(e, 3) / 12.0 * (13.0 * math.sin(3.0 * ma) - 3.0 * \
         math.sin(ma))) + 0.5
@@ -143,16 +137,14 @@ def get_equation_of_centre(e, mean_anomaly_degs):
     
     return eq_centre_in_secs
     
-def get_true_longitude_sun(mean_anomaly_degs, mean_long_sun_degs,
-                            mandaphalam_secs):
+def get_true_longitude(mean_longitude_degs, mandaphalam_secs):
     """
-    Return the true longitude of sun.
-    Input: Mean anomaly, mean longitude and mandaphalam (eqn. of centre)
+    Return the true longitude in degrees
+    Input: Mean longitude and mandaphalam (eqn. of centre)
     """
-    e = constants.earth_eccentricity
     mandaphalam_degs = mandaphalam_secs / 3600.0
-    true_long_sun_degs = find_sum_degs([mean_long_sun_degs, mandaphalam_degs])
-    return true_long_sun_degs
+    true_longitude_degs = find_sum_degs([mean_longitude_degs, mandaphalam_degs])
+    return true_longitude_degs
     
 def get_trop_longitude_sun(true_long_sun_degs, precession_degs):
     """
@@ -164,19 +156,20 @@ def get_trop_longitude_sun(true_long_sun_degs, precession_degs):
     
 def get_helio_centric_vel(mean_anomaly_degs):
     """
-    Return the heliocentric velocity (sec), given the mean anomaly in degrees
+    Return the heliocentric velocity (deg), given the mean anomaly in degrees
     """
-    ma = mean_anomaly_degs * constants.rads_per_degree
-    e  = constants.earth_eccentricity
+    ma = mean_anomaly_degs * cn.rads_per_degree
+    e  = cn.earth_eccentricity
     
     # Redo: Give a proper variable name
     n = 59 * 60.0 + 8.0
     
-    helio_vel_in_secs = n * ( 1.0 - 2.0 * e * math.cos(ma)
+    helio_vel_secs = n * ( 1.0 - 2.0 * e * math.cos(ma)
         + 2.5 * e * e * math.cos(2.0 * ma)
         - e * e * e * (13.0 * math.cos(3.0 * ma) - math.cos(ma))/4.0 ) + 0.5
         
-    return helio_vel_in_secs
+    helio_vel_degs = helio_vel_secs / cn.seconds_in_degree    
+    return helio_vel_degs
     
 def get_radius_vector(apse_position_degs, tlpd, e, lsma):
     """
@@ -187,7 +180,7 @@ def get_radius_vector(apse_position_degs, tlpd, e, lsma):
     # lsma: length of semi major axis
     # tlpd: True Longitude of the Planet or Tropical Longitude (for only Sun)
     theta_degs = find_diff_degs(apse_position_degs, tlpd)
-    theta_rads = theta_degs * constants.rads_per_degree
+    theta_rads = theta_degs * cn.rads_per_degree
     rad_vector =  lsma * (1.0 - e * e) / (1.0 - e * math.cos(theta_rads))
     return rad_vector
     
@@ -196,10 +189,10 @@ def get_hour_angle(latitude_degs, trop_long_sun_degs):
     Return the hour angle in degrees, given latitude and tropical longitude of 
     sun in degrees
     """
-    trop_long_sun_rads = trop_long_sun_degs * constants.rads_per_degree
+    trop_long_sun_rads = trop_long_sun_degs * cn.rads_per_degree
     tlsr  = trop_long_sun_rads 
-    omega = constants.omega_rads
-    lat_rads = latitude_degs * constants.rads_per_degree
+    omega = cn.omega_rads
+    lat_rads = latitude_degs * cn.rads_per_degree
     
     # Redo: Need to give a proper name for ltfi_rads
     ltfi_rads = math.atan(abs(math.sqrt(1.0 - math.sin(omega) * \
@@ -213,7 +206,8 @@ def get_hour_angle(latitude_degs, trop_long_sun_degs):
         math.sin(tlsr)) / math.sqrt(1.0 - math.sin(omega) * math.sin(omega) * 
         math.sin(tlsr) * math.sin(tlsr)))
     
-    hour_angle_degs = hour_angle_rads * constants.degs_per_radian
+    hour_angle_degs = hour_angle_rads * cn.degs_per_radian
+    # print "hour_angle_degs = ", hour_angle_degs
     return hour_angle_degs
     
 def get_charam(hour_angle_degs):
@@ -222,57 +216,69 @@ def get_charam(hour_angle_degs):
     """
     # Charam is the positive difference from 90 degree
     charam_degs = abs(90 - hour_angle_degs)
+    # print "charam_degs = ", charam_degs
     return charam_degs
     
 def get_pranam(trop_long_sun_degs):
     """
     Return the pranam in degrees, given the tropical longitude of sun in degrees
     """
-    trop_long_sun_rads = trop_long_sun_degs * constants.rads_per_degree
+    trop_long_sun_rads = trop_long_sun_degs * cn.rads_per_degree
     tlsr = trop_long_sun_rads
-    omega = constants.omega_rads
+    omega = cn.omega_rads
     
-    pranam_rads = math.atan((2.0 * math.tan(tlsr) * math.sin(omega/2.0) * 
+    # Get always a positive value for pranam_rads; later, assign the sign
+    pranam_rads = abs(math.atan((2.0 * math.tan(tlsr) * math.sin(omega/2.0) * 
         math.sin(omega/2.0)) /
-        (1.0 + math.tan(tlsr) * math.tan(tlsr) * math.cos(omega)))
+        (1.0 + math.tan(tlsr) * math.tan(tlsr) * math.cos(omega))))
     
     # Pranam is Negative if TropLong of Sun is between 0-90 and 180-270 degrees
-    if 0 <= tlsr < 0.5 * math.pi or math.pi <= tlsr < 1.5 * math.pi:
+    if (0 <= tlsr < 0.5 * math.pi) or (math.pi <= tlsr < 1.5 * math.pi):
         pranam_rads = -pranam_rads
     
-    pranam_degs = pranam_rads * constants.degs_per_radian
+    pranam_degs = pranam_rads * cn.degs_per_radian
+    # print "Trop Long = ", trop_long_sun_degs
+    # print "pranam_degs = ", pranam_degs
     return pranam_degs
 
-def get_sun_rise_set_sec(trop_long_sun_degs, mandaphalam_secs, mean_anomaly_degs, 
-                    charam_degs, pranam_degs, lat_dir):
+def get_sun_rise_set(in_datetime, trop_long_sun_degs, mandaphalam_secs, 
+    mean_anomaly_degs, charam_degs, pranam_degs, lat_dir):
     """
     Return the sun rise and sun set, in seconds from 00:00 hours
     """
     tlsd = trop_long_sun_degs
-    mp_degs = mandaphalam_secs / constants.seconds_in_degree
+    mp_degs = mandaphalam_secs / cn.seconds_in_degree
     
     # Redo: Need to give a suitable name for net_degs
     net_degs = pranam_degs + mp_degs
-    
+    # print "net_min = ", net_degs * 60
     # Convert the angle-degrees to time-seconds. 
     # Redo: Give a proper name for app_noon_sec
-    app_noon_sec = net_degs * constants.deg_angle_to_time_sec 
+    app_noon_sec = net_degs * cn.deg_angle_to_time_sec 
     
     # Add 15 Ghatikas (1 Ghatika = 1 Nazhigai = 24 minutes of time)
-    app_noon_sec += 15 * constants.ghatikas_to_sec_conv_factor
-    
+    app_noon_sec += 15 * cn.ghatikas_to_sec_conv_factor
+    # print "app_noon_sec = ", app_noon_sec
     # Add 6 hours to get App Noon
     app_noon_sec = app_noon_sec + 6 * 3600
-    
+    # print "app_noon_sec = ", app_noon_sec
     if (lat_dir == 'N' and tlsd > 180) or (lat_dir == 'S' and tlsd <= 180):
         charam_degs = -charam_degs
         
-    halfday_sec = charam_degs * constants.deg_angle_to_time_sec
+    # print "charam_degs = ", charam_degs        
+    halfday_sec = charam_degs * cn.deg_angle_to_time_sec
+    halfday_sec += 15 * cn.ghatikas_to_sec_conv_factor
+    # print "halfday_sec = ", halfday_sec
     
-    sun_rise_sec = app_noon_sec - halfday_sec
-    sun_set_sec = app_noon_sec + halfday_sec
+    sunrise_sec = app_noon_sec - halfday_sec
+    sunset_sec = app_noon_sec + halfday_sec
     
-    return sun_rise_sec, sun_set_sec
+    base_date = in_datetime.replace(hour = 0, minute = 0, second = 0)
+    sunrise_time = base_date + dt.timedelta(seconds = sunrise_sec)
+    sunset_time = base_date + dt.timedelta(seconds = sunset_sec)    
+    # print sunrise_time
+    # print sunset_time
+    return sunrise_time, sunset_time
     
 def get_net_correction(charam_degs, mandaphalam_secs, pranam_degs, 
     longitude_degs, dirn):
@@ -282,47 +288,162 @@ def get_net_correction(charam_degs, mandaphalam_secs, pranam_degs,
     """
     if re.match(r"w|(west)", dirn, re.IGNORECASE):
         longitude_degs = -longitude_degs
-    mandaphalam_degs = mandaphalam_secs / constants.seconds_in_degree
+    mandaphalam_degs = mandaphalam_secs / cn.seconds_in_degree
     cha_man_pra = find_sum_degs([charam_degs, mandaphalam_degs, pranam_degs])
     net_corr_degs = find_diff_degs(cha_man_pra, longitude_degs)
-    net_corr_mins = net_corr_degs * constants.minutes_in_degree
+    net_corr_mins = net_corr_degs * cn.minutes_in_degree
+    # print "charam_degs = ", charam_degs
+    # print "mandaphalam_degs = ", mandaphalam_degs
+    # print "pranam_degs = ", pranam_degs
+    # print "longitude_degs = ", longitude_degs
     return net_corr_mins    
 
-def sun_long_correction(true_long_sun_degs, net_corr_min, helio_vel_sec):
-    net_corr_day = net_corr_min / constants.min_angle_in_one_day
-    helio_vel_degs = helio_vel_sec / 3600.0
+def sun_corrected_long(true_long_sun_degs, net_corr_min, helio_vel_degs):
+    """
+    Return the corrected longitude of sun, taking in true longitude(deg), net 
+    correction(min) and helio centric velocity(degs)
+    """
+    net_corr_day = net_corr_min / cn.min_angle_in_one_day
     
     corrected_true_long = find_sum_degs([true_long_sun_degs, 
         net_corr_day * helio_vel_degs])
         
     return corrected_true_long
     
-# dummy function
-def get_sun_rise_set(given_time):
-    return 0, 0
+def get_sun_params(input_params):
     
-def calc_tamil_date(localtm, fine_tuning = True):  
+    # Input time given in datetime format. This is an approximate local time
+    # For example, the time given by Indians is that of 82.5 E, which is not
+    # local to individual locations
+    
+    # Two Steps:
+    # 1. Convert it to IST equivalent using the GST offset
+    # 2. Get the exact local time, based on the given local longitude
+    
+    # in_datetime = dt.datetime(2014, 9, 12, 17, 30)
+    # diff_from_gst_in_sec = 5 * 3600 + 30 * 60
+    # dirn = "E"
+    # longitude_degs = 78.2
+    # latitude_degs = 11.66
+    # lat_dir = "N"
+
+    in_datetime = input_params["in_datetime"]
+    diff_from_gst_in_sec = input_params["diff_from_gst_in_sec"]
+    longitude_degs = input_params["long_degs"]
+    dirn = input_params["long_dirn"]
+    latitude_degs = input_params["lat_degs"]
+    lat_dirn = input_params["lat_dirn"]
+    
+    ist_time = get_time_in_IST(in_datetime, diff_from_gst_in_sec, dirn)
+    local_time = get_local_time(ist_time, longitude_degs, dirn)
+    
+    years_since_epoch = get_years_elapsed(ist_time, cn.epoch)
+    precession_degs = get_precession_degs(years_since_epoch)
+
+    epoch_days = get_days_from_epoch(local_time)
+    rev_days = cn.sidereal_days_in_year
+    msle = cn.mean_sun_long_at_epoch
+    mean_long_sun_degs = get_mean_longitude(epoch_days, rev_days, msle)
+    apse_posn_sun_degs = get_apse_position_degs(cn.apse_position_at_epoch, 
+        cn.apse_movement_per_year_in_sec, years_since_epoch)
+    mean_anom_sun_degs = get_mean_anomaly_degs(apse_posn_sun_degs, 
+        mean_long_sun_degs)
+    mandaphalam_secs = get_equation_of_centre(cn.earth_eccentricity, 
+        mean_anom_sun_degs)                            
+        
+    true_long_sun_degs = get_true_longitude(mean_long_sun_degs, 
+        mandaphalam_secs)
+    trop_long_sun_degs = get_trop_longitude_sun(true_long_sun_degs, 
+        precession_degs)
+    
+    helio_vel_degs = get_helio_centric_vel(mean_anom_sun_degs)
+    radius_vect_sun = get_radius_vector(apse_posn_sun_degs, 
+        trop_long_sun_degs, cn.earth_eccentricity, cn.earth_lsma)
+    
+    hour_angle_degs = get_hour_angle(latitude_degs, trop_long_sun_degs)
+    charam_degs = get_charam(hour_angle_degs)
+    pranam_degs = get_pranam(trop_long_sun_degs)
+    
+    net_corr_min = get_net_correction(charam_degs, mandaphalam_secs,
+        pranam_degs, longitude_degs, dirn)
+    true_long_sun_degs = sun_corrected_long(true_long_sun_degs, 
+        net_corr_min, helio_vel_degs)                        
+    
+    sunrise_dt, sunset_dt = get_sun_rise_set(in_datetime, trop_long_sun_degs, 
+        mandaphalam_secs, mean_anom_sun_degs, charam_degs, pranam_degs, lat_dirn)
+
+    sun_params = dict()
+    sun_params["ist_time"] = ist_time
+    sun_params["local_time"] = local_time
+    sun_params["y_epoch"] = years_since_epoch
+    sun_params["prec"] = precession_degs
+    sun_params["d_epoch"] = epoch_days
+    sun_params["mean_long"] = mean_long_sun_degs
+    sun_params["true_long"] = true_long_sun_degs
+    sun_params["trop_long"] = trop_long_sun_degs
+    sun_params["apse"] = apse_posn_sun_degs
+    sun_params["anom"] = mean_anom_sun_degs
+    sun_params["eqnc"] = mandaphalam_secs
+    sun_params["hvel"] = helio_vel_degs
+    sun_params["rad"] = radius_vect_sun
+    sun_params["ha"] = hour_angle_degs
+    sun_params["charam"] = charam_degs
+    sun_params["pranam"] = pranam_degs
+    sun_params["rise"] = sunrise_dt
+    sun_params["set"] = sunset_dt
+    
+    return sun_params
+    
+def get_lagn_params(input_params, sun_params):
+    lat_degs = input_params["lat_degs"]
+    lat_dirn = input_params["lat_dirn"]
+    long_degs = input_params["long_degs"]
+    long_dirn = input_params["long_dirn"]
+    
+    local_time = sun_params["local_time"]
+    mean_long_sun_degs = sun_params["mean_long"]
+    precession_degs = sun_params["prec"]
+    
+    south_hemi = re.match(r"s|(south)", lat_dirn, re.IGNORECASE) # True / False
+    lt_corr_degs = get_local_time_correction(local_time)
+    ramc_degs = get_ramc(long_degs, mean_long_sun_degs, long_dirn,
+        precession_degs, lt_corr_degs, south_hemi)
+    lagn_degs = get_ascendant(ramc_degs, lat_degs, precession_degs, south_hemi)
+        
+    lagn_params = dict()
+    lagn_params["ramc"] = ramc_degs
+    lagn_params["lagn"] = lagn_degs
+    
+    return lagn_params
+    
+def get_all_planets():
+    input_params  = get_input_params()
+    sun_params    = get_sun_params(input_params)
+    moon_params   = get_moon_params(input_params, sun_params)
+    lagn_params   = get_lagn_params(input_params, sun_params)
+    seven_planets = get_seven_planets(sun_params, moon_params)
+    
+    return (sun_params, moon_params, lagn_params, seven_planets)
+    
+def calc_tamil_date(input_params, fine_tuning = True):  
     """
     Return Tamil Day, Month and Year
     Input: Local Time
     """
     # localtm is of type "datetime"
-    original_time = localtm
-    given_time = localtm
+    cur_params = input_params.copy()
+    original_time = cur_params["in_datetime"]
+    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
     
-    sunrise_time, sunset_time = get_sun_rise_set(given_time)
-    
-    sun_long_pos = sun_long_correction(given_time)
-    
-    if sunrise_time <= given_time <= sunset_time:
+    if sunrise_time <= cur_params["in_datetime"] <= sunset_time:
         # Add 5 minutes - Not sure why, need to check
-        given_time += datetime.timedelta(0, 300)
-        sun_long_pos = sun_long_correction(given_time)
+        cur_params["in_datetime"] += dt.timedelta(0, 300)
+        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
     
-    tamil_month_num = sun_long_pos / constants.deg_in_house
+    tamil_month_num = sun_long_pos / cn.deg_in_house
     
     # Make the target position as closest multiple of 30 less than sunlongpos
-    target_pos = tamil_month_num * constants.deg_in_house
+    target_pos = tamil_month_num * cn.deg_in_house
     
     # The objective is to find when exactly the sun crosses the target_pos
     # That will be counted as day 1 if it falls between sunrise and sunset
@@ -335,11 +456,10 @@ def calc_tamil_date(localtm, fine_tuning = True):
             break
         
         # Go one day prior and recalculate sun's position
-        given_time -= datetime.timedelta(1,0)
+        cur_params["in_datetime"] -= dt.timedelta(1,0)
         # Increase the count by one for every one day gone in reverse
         tamil_day += 1
-    
-        sun_long_pos = sun_long_correction(given_time)
+        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
         
     # Now, gone back in days such that sun's position is less than target
     # Increment minute by minute to find where it crosses the target degrees
@@ -349,49 +469,46 @@ def calc_tamil_date(localtm, fine_tuning = True):
             break
 
         # Store the current time to check if the crossing happens pas 00:00 hrs
-        stored_time = given_time
+        saved_time = cur_params["in_datetime"]
         # Go one minute ahead and recalculate sun's position
-        given_time += datetime.timedelta(0, 60)
+        cur_params["in_datetime"] += dt.timedelta(0, 60)
         
-        if datetime.datetime(saved_time.year, saved_time.month, 
-            saved_time.day) == datetime.datetime(given_time.year, 
-            given_time.month, given_time.day):
+        if dt.datetime(saved_time.year, saved_time.month, 
+            saved_time.day) == dt.datetime(cur_params["in_datetime"].year, 
+            cur_params["in_datetime"].month, cur_params["in_datetime"].day):
             # The day is changed, so reduce the count of tamil day
             tamil_day -= 1
             
-        sun_long_pos = sun_long_correction(given_time)
+        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
         
         if target_pos == 0:
             sun_long_pos -= 360
             
-    cross_time = given_time
-    sunrise_time, sunset_time = get_sun_rise_set(cross_time)
+    cross_time = cur_params["in_datetime"]
+    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
     
     if cross_time > sunset_time:
         tamil_day -= 1
         
-    # Reload the original time
-    given_time = original_time
-    
-    sun_long_pos = sun_long_correction(given_time)
-    sunrise_time, sunset_time = get_sun_rise_set(given_time)
+    # Reload the original time and recalculate the sun position
+    cur_params["in_datetime"] = original_time
+    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
     
     if fine_tuning == True:
         # Tamil Day or Month starts with the sun rise only
         # So, if the given time is less than sunrise, go back in count by 1 day
-        if given_time < sunrise_time:
+        if cur_params["in_datetime"] < sunrise_time:
             tamil_day -= 1
             
             if tamil_day == 0:
                 # Go one day prior and recalculate tamil_day
-                given_time -= datetime.timedelta(1, 0)
-                fine_tuning = False
-                tamil_day = calc_tamil_date(given_time, fine_tuning)
+                cur_params["in_datetime"] -= dt.timedelta(1, 0)
+                tamil_day = calc_tamil_date(cur_params, fine_tuning = False)
     
     # Now algo to calculate the tamil year number - out of total 60 years
-    tamil_year_num = (original_time.year - constants.tamil_year_base) % \
-        constants.total_tamil_years
-        
+    tamil_year_num = (original_time.year - cn.tamil_year_base) % \
+        cn.total_tamil_years
+
     if original_time.month <= 4 and tamil_month_num >= 8:
         tamil_year_num -= 1
     
@@ -406,13 +523,13 @@ def get_yogam_karanam_thithi(sun_posn_degs, moon_posn_degs):
     # There are totally 30 thithis in Shukla and Krishna Paksham combined
     # So divide the thithi angle by 12 to get the thithi number
     thithi_angle = find_diff_degs(sun_posn_degs, moon_posn_degs)
-    thithi_divisor = constants.full_circle / constants.total_thithis
+    thithi_divisor = cn.full_circle / cn.total_thithis
     thithi_num = math.floor(thithi_angle / thithi_divisor)
         
     # There are totally 27 yogams 
     # So divide the yogam angle by 13.33 to get the yogam number
     yogam_angle = find_sum_degs([sun_posn_degs, moon_posn_degs])
-    yogam_divisor = constants.full_circle / constants.total_yogams
+    yogam_divisor = cn.full_circle / cn.total_yogams
     yogam_num = math.floor(yogam_angle / yogam_divisor)
     
     karanam_num = (math.floor(thithi_angle / 6) - 1) % 7
@@ -469,8 +586,8 @@ def is_leap_year(given_year):
     else:
         return 1
     
-def get_ramc(given_date, local_longitude, mean_long_sun_degs, dirn,
-    precsn_birth_degs, lt_corr_degs, is_southern_hemisphere):
+def get_ramc(local_longitude, mean_long_sun_degs, dirn, precsn_birth_degs, 
+    lt_corr_degs, south_hemi):
     """
     Return RAMC in degrees
     """
@@ -481,14 +598,14 @@ def get_ramc(given_date, local_longitude, mean_long_sun_degs, dirn,
     # Right now, just implemented as what is in old C code
     
     # Longitude correction in days
-    long_correction = (local_longitude * (59.0 + 8.0/60.0)) / \
-        deg_angle_in_one_day
+    long_correction = (local_longitude * (59.0 + 8.0/60.0) / 
+        cn.deg_angle_in_one_day)
     
     cml_sun = find_diff_degs(mean_long_sun_degs, long_correction)
     tl_sun = find_sum_degs([cml_sun, precsn_birth_degs])
     ramc_degs = find_sum_degs([tl_sun, lt_corr_degs])
     
-    if(is_southern_hemisphere):
+    if south_hemi:
         ramc_degs = find_sum_degs([ramc_degs, 180])
         
     return ramc_degs
@@ -498,13 +615,13 @@ def get_local_time_correction(localtm):
     Return Local Time Correction in degrees 
     Input: Local Time
     """
-    time_twelve = constants.time_twelve
+    time_twelve = cn.time_twelve
     time_twelve = time_twelve.replace(day = localtm.day, month = localtm.month,
         year = localtm.year)
     
     time_diff = localtm - time_twelve
     
-    t1_time_seconds = time_diff.days * constants.seconds_in_day + \
+    t1_time_seconds = time_diff.days * cn.seconds_in_day + \
         time_diff.seconds
         
     if(time_diff.days < 0):
@@ -517,34 +634,30 @@ def get_local_time_correction(localtm):
     t1_total_seconds = t1_time_seconds + t1_adj_seconds
     
     # Converting time into corresponding degrees
-    lt_corr_degs = (t1_total_seconds / constants.seconds_in_day) * \
-        constants.full_circle
+    lt_corr_degs = (t1_total_seconds / cn.seconds_in_day) * \
+        cn.full_circle
     
     if(localtm <= time_twelve):
         lt_corr_degs = -lt_corr_degs
         
     return lt_corr_degs
     
-def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs, 
-    is_southern_hemisphere):
+def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs, south_hemi):
     """
     Return Nirayana Lagnam in degrees
     """
-    
-    ramc_rads = ramc_degs * constants.rads_per_degree
-    latitude_rads = latitude_degs * constants.rads_per_degree
-    omega_rads = constants.omega_rads
+    ramc_rads = ramc_degs * cn.rads_per_degree
+    latitude_rads = latitude_degs * cn.rads_per_degree
+    omega_rads = cn.omega_rads
     
     gaman_rads = math.atan(((math.tan(latitude_rads) * math.sin(omega_rads)) / 
         math.cos(ramc_rads)) + math.cos(omega_rads) * math.tan(ramc_rads))
-        
-    gaman_degs = gaman_rads * constants.degs_per_radian
-    
+    gaman_degs = gaman_rads * cn.degs_per_radian
     general_diff = find_diff_degs(gaman_degs, ramc_degs)
     if (general_diff < 180):
         nearest_diff = general_diff
     else:
-        nearest_diff = find_diff_degs(constants.full_circle, general_diff)
+        nearest_diff = find_diff_degs(cn.full_circle, general_diff)
     
     if (nearest_diff > 90):
         gaman_degs = find_sum_degs([gaman_degs, 180])
@@ -552,7 +665,7 @@ def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs,
     # Todo: Questionable! Adding just like that 90 degrees to gaman
     gaman_degs = find_sum_degs([gaman_degs, 90])
     
-    if(is_southern_hemisphere):
+    if(south_hemi):
         gaman_degs = find_sum_degs([gaman_degs, 180])    
     
     sayana_lagn = gaman_degs
@@ -563,28 +676,26 @@ def get_ascendant(ramc_degs, latitude_degs, precsn_birth_degs,
     #PlanetDir[0][0]='E'    
     return nirayana_lagn
 
-def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs, 
-    is_southern_hemisphere):
+def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs, south_hemi):
     """
     Return Nirayana Dhasa in degrees
     """
-    
-    ramc_rads = ramc_degs * constants.rads_per_degree
-    omega_rads = constants.omega_rads
+    ramc_rads = ramc_degs * cn.rads_per_degree
+    omega_rads = cn.omega_rads
     hlong_rads = math.atan(math.tan(ramc_rads) / math.cos(omega_rads))
-    hlong_degs = hlong_rads * constants.degs_per_radian
+    hlong_degs = hlong_rads * cn.degs_per_radian
     
     general_diff = find_diff_degs(ramc_degs, hlong_degs)
         
     if (general_diff < 180):
         nearest_diff = general_diff
     else:
-        nearest_diff = find_diff_degs(constants.full_circle, general_diff)
+        nearest_diff = find_diff_degs(cn.full_circle, general_diff)
 
     if (nearest_diff > 90):
         hlong_degs = find_sum_degs([hlong_degs, 180])
 
-    if(is_southern_hemisphere):
+    if south_hemi:
         hlong_degs = find_sum_degs([hlong_degs, 180])
         
     sayana_dhasa = hlong_degs
@@ -595,57 +706,54 @@ def get_culm_point(ramc_degs, latitude_degs, precsn_birth_degs,
 
     
 def calculate_house(sine_value, ramc_degs, ramc_adder, pole_id, 
-    precsn_birth_degs, is_southern_hemisphere):
+    precsn_birth_degs, south_hemi):
     """
     Return House Position in degrees
     """
-    
     # Todo: give proper names for ramc_adder and pole_id arguments
     omega_rads = constant.omega_rads
     pole_rads = math.asin(sine_value)
     # Todo: 30 needs to be replaced with appropriate value
     oblasc_degs = find_sum_degs([ramc_degs, ramc_adder])
-    oblasc_rads = oblasc_degs * constants.rads_per_degree
+    oblasc_rads = oblasc_degs * cn.rads_per_degree
     pole_elev_rads = math.atan((1.0 / math.tan(omega_rads)) * 
         math.sin(pole_id * pole_rads / 3.0))
     
     oblasc_sub90_degs = find_diff_degs(oblasc_degs, 90)
-    oblasc_sub90_rads = oblasc_sub90_degs * constants.rads_per_degree
+    oblasc_sub90_rads = oblasc_sub90_degs * cn.rads_per_degree
     hlong_rads = math.atan(-1.0 / ((math.tan(pole_elev_rads) * 
         math.sin(omega_rads) / cos(oblasc_sub90_rads)) + 
         (math.tan(oblasc_sub90_rads) * cos(omega_rads))))
-    hlong_degs = hlong_rads * constants.degs_per_radian
+    hlong_degs = hlong_rads * cn.degs_per_radian
     
     general_diff = find_diff_degs(oblasc_degs, hlong_degs)
     if (general_diff < 180):
         nearest_diff = general_diff
     else:
-        nearest_diff = find_diff_degs(constants.full_circle, general_diff)        
+        nearest_diff = find_diff_degs(cn.full_circle, general_diff)        
     
     if (nearest_diff > 67):
          hlong_degs = find_sum_degs([hlong_degs, 180])
          
-    if(is_southern_hemisphere):
+    if south_hemi:
         hlong_degs = find_sum_degs([hlong_degs, 180])
     
     house_position = find_diff_degs(hlong_degs, precsn_birth_degs)
     return house_position
     
-def get_house_positions(nirayana_lagn,  nirayana_dhasa, latitude_degs, 
-    ramc_degs, precsn_birth_degs, is_southern_hemisphere):
+def get_house_positions(nirayana_lagn, nirayana_dhasa, latitude_degs, ramc_degs, 
+    precsn_birth_degs, south_hemi):
     """
     Return a list of 12 house positions
     """
-    
     # house_positions is a list containing 12 elements
     # initializing the default value to 0
     house_positions = [0] * 12
-    
     house_positions[0] = nirayana_lagn
     house_positions[9] = nirayana_dhasa
     
-    latitude_rads = latitude_degs * constants.rads_per_degree
-    omega_rads = constants.omega_rads
+    latitude_rads = latitude_degs * cn.rads_per_degree
+    omega_rads = cn.omega_rads
     
     sine_value = math.tan(latitude_rads) * math.tan(omega_rads)
     
@@ -654,23 +762,23 @@ def get_house_positions(nirayana_lagn,  nirayana_dhasa, latitude_degs,
     if (sine_value > 1):
         nirayana_diff = find_diff_degs(nirayana_lagn, nirayana_dhasa)
         adder_for_h10h11 = nirayana_diff / 3.0
-        house_positions[10] = \
-            find_sum_degs([house_positions[9], adder_for_h10h11])
-        house_positions[11] = \
-            find_sum_degs([house_positions[10], adder_for_h10h11])
+        house_positions[10] = find_sum_degs(
+            [house_positions[9], adder_for_h10h11])
+        house_positions[11] = find_sum_degs(
+            [house_positions[10], adder_for_h10h11])
         
         adder_for_h1h2 = find_diff_degs(60, adder_for_h10h11)
         house_positions[1] = find_sum_degs([house_positions[0], adder_for_h1h2])
         house_positions[2] = find_sum_degs([house_positions[1], adder_for_h1h2])
     else:
         house_positions[10] = calculate_house(sine_value, ramc_degs, 30, 1,
-            precsn_birth_degs, is_southern_hemisphere)
+            precsn_birth_degs, south_hemi)
         house_positions[11] = calculate_house(sine_value, ramc_degs, 60, 2,
-            precsn_birth_degs, is_southern_hemisphere)
+            precsn_birth_degs, south_hemi)
         house_positions[1] = calculate_house(sine_value, ramc_degs, 120, 2,
-            precsn_birth_degs, is_southern_hemisphere)
+            precsn_birth_degs, south_hemi)
         house_positions[2] = calculate_house(sine_value, ramc_degs, 150, 1,
-            precsn_birth_degs, is_southern_hemisphere)
+            precsn_birth_degs, south_hemi)
             
     # House Positions of 3, 4, 5 are 180 degree from that of 9, 10, 1l 
     # House Positions of 6, 7, 8 are 180 degree from that of 0, 1, 2
@@ -683,10 +791,8 @@ def get_bhava_positions(house_positions, planet_positions):
     """
     Return a list of 12 Bhava Positions
     """
-    
     house1_degs = [0] * 12
     house2_degs = [0] * 12
-    
     for i in range(0, 12):
         cur_house_degs = house_positions[i]
         pre_house_degs = house_positions[(i - 1) % 12]
@@ -717,7 +823,6 @@ def get_navamsa_positions(planet_positions):
     """
     Return a list of 12 Navamsa Positions
     """
-
     navams_positions = list()
     for i in range(0, 12):
         planet_pos_degs = planet_positions[i]
@@ -732,7 +837,6 @@ def get_rasi_positons(planet_positions):
     """
     Return a list of 12 Rasi Positions
     """
-
     rasi_positions = list()
     for i in range(0, 12):
         planet_pos_degs = planet_positions[i]
@@ -740,33 +844,44 @@ def get_rasi_positons(planet_positions):
         rasi_positions.append(rasi_num)
     return rasi_positions
     
-def get_mean_longitude(epoch_days, rev_days, mple):
+def get_mean_longitude(epoch_days, rev_days, mple, rahu = False):
+    """
+    Return the mean longitude of the planet
+    """
     # mple is mean planet longitude at epoch
     num_revolutions = epoch_days / rev_days
-    angle_movement = (num_revolutions * constants.full_circle) 
+    angle_movement = (num_revolutions * cn.full_circle) 
+    # print "epoch_days = ", epoch_days
+    # print "rev_days = ", rev_days
+    # print "num_revolutions = ", num_revolutions
+    # print "angle_movement = ", angle_movement % 360)
     
-    # find_sum_degs needs arguments to be passed in a list
-    mean_long_degs = find_sum_degs([mple, angle_movement])
+    if rahu:
+        # Only for Rahu calculation, angle_movement needs to be subtracted
+        mean_long_degs = find_diff_degs(mple, angle_movement)
+    else:
+        # find_sum_degs needs arguments to be passed in a list
+        mean_long_degs = find_sum_degs([mple, angle_movement])
+            
     return mean_long_degs
-
-def get_moon_cur_pos(epoch_pos, revolution_days, epoch_days):
-    num_revolutions = epoch_days / revolution_days
-    angle_movement = (num_revolutions * constants.full_circle) 
-    
-    moon_cur_degs = find_sum_degs([epoch_pos, angle_movement])
-    return moon_cur_degs
     
 def get_moon_annual_variation(mandaphalam_secs):
-    mandaphalam_mins = mandaphalam_secs / constants.seconds_in_minute
+    """
+    Return Moon Annual Variation in minutes
+    """
+    mandaphalam_mins = mandaphalam_secs / cn.seconds_in_minute
     annual_varn_mins = -1.0 * mandaphalam_mins / 16.0
     return annual_varn_mins
     
 def get_evection(mean_long_moon_degs, mean_long_sun_degs, mean_moon_apse_degs):
+    """
+    Return Moon Evection in minutes
+    """
     moon_and_apse = find_sum_degs([mean_long_moon_degs, mean_moon_apse_degs])
     double_sun = find_sum_degs([mean_long_sun_degs, mean_long_sun_degs])
     
     theta_degs = find_diff_degs(moon_and_apse, double_sun)
-    theta_rads = theta_degs * constants.rads_per_degree
+    theta_rads = theta_degs * cn.rads_per_degree
     
     angle_rads = math.atan(-4467.0 / (60.0 * math.sin(theta_rads)))
     
@@ -779,9 +894,12 @@ def get_evection(mean_long_moon_degs, mean_long_sun_degs, mean_moon_apse_degs):
     return evection_mins
     
 def get_variation(mean_long_moon_degs, mean_long_sun_degs):
+    """
+    Return Moon Variation in minutes
+    """
     theta_degs = find_diff_degs(mean_long_moon_degs, mean_long_sun_degs)
-    theta_rads = theta_degs * constants.rads_per_degree
-    moon_cv_rads = constants.moon_cv_rads
+    theta_rads = theta_degs * cn.rads_per_degree
+    moon_cv_rads = cn.moon_cv_rads
     tpluscvby2 = (theta_rads + moon_cv_rads) / 2.0
     tminuscvby2 = (theta_rads - moon_cv_rads) / 2.0
     
@@ -789,15 +907,6 @@ def get_variation(mean_long_moon_degs, mean_long_sun_degs):
         math.sin(tminuscvby2) / 60.0
     return variation_mins
 
-def get_true_longitude_moon(corrected_moon_degs, corrected_apse_degs):
-    mean_anomaly_degs = find_diff_degs(corrected_apse_degs, 
-        corrected_moon_degs)
-    e = constants.moon_eccentricity
-    eqn_secs = get_equation_of_centre(e, mean_anomaly_degs)
-    eqn_degs = (eqn_secs/3600.0)
-    true_long_moon_degs = find_sum_degs([corrected_moon_degs, eqn_degs])
-    return true_long_moon_degs
-    
 # Not sure why this get_near_value function is written. Need to understand    
 def get_near_value(a1, a2):
     n1 = a1 // 90.0
@@ -819,17 +928,17 @@ def get_near_value(a1, a2):
     
 def get_ecliptic_moon(true_moon_degs, rahu_degs):
     nodal_dist_degs = find_diff_degs(true_moon_degs, rahu_degs)
-    nodal_dist_rads = nodal_dist_degs * constants.rads_per_degree
+    nodal_dist_rads = nodal_dist_degs * cn.rads_per_degree
     
-    theta_rads = 5.1467 * constants.rads_per_degree
+    theta_rads = 5.1467 * cn.rads_per_degree
     other_node_rads = math.atan(math.cos(theta_rads) * 
         math.tan(nodal_dist_rads))
-    other_node_degs = other_node_rads * constants.degs_per_radian
+    other_node_degs = other_node_rads * cn.degs_per_radian
     
     # Todo: What is this "near_value" function. Need to understand.
     nodal_corr_degs = get_near_value(nodal_dist_degs, other_node_degs)
     
-    eclp_moon_degs = find_sum_degs[(nodal_corr_degs, rahu_degs)]
+    eclp_moon_degs = find_sum_degs([nodal_corr_degs, rahu_degs])
     
     true_moon_quad = true_moon_degs // 90.0
     eclp_moon_quad = eclp_moon_degs // 90.0
@@ -840,8 +949,11 @@ def get_ecliptic_moon(true_moon_degs, rahu_degs):
         
     return eclp_moon_degs
 
-def get_moon_final_correction (mean_sun, mean_moon, sun_apse, moon_apse, rahu):
-    d2rad = constants.rads_per_degree
+def get_moon_final_correction(mean_sun, mean_moon, sun_apse, moon_apse, rahu):
+    """
+    Return final correction of moon in degrees
+    """
+    d2rad = cn.rads_per_degree
     a = moon_sun        = find_diff_degs(mean_moon, mean_sun) * d2rad
     b = sun_apse_sun    = find_diff_degs(sun_apse, mean_sun) * d2rad
     c = moon_apse_moon  = find_diff_degs(moon_apse, mean_moon) * d2rad
@@ -852,65 +964,98 @@ def get_moon_final_correction (mean_sun, mean_moon, sun_apse, moon_apse, rahu):
     corr_secs = -155.0 * math.sin(2.0*a + b) + 198.0 * math.sin(a + b - d) + \
         112.0 * math.sin(b - c)    + 73.0 * math.sin(b + c) + \
         85.0 * math.sin(c + 2.0*e) - 81.0 * math.sin(2.0 * f)
-    corr_degs = corr_secs / constants.seconds_in_degree    
+    corr_degs = corr_secs / cn.seconds_in_degree    
     return corr_degs
     
 def add_correction(degree, nc, motion):
-  cor = (motion * nc) / 21600.0
-  return find_sum_degs([deg, cor / 60.0])
+    cor = (motion * nc) / 21600.0
+    return find_sum_degs([degree, cor / 60.0])
     
-def moon_positions(mean_long_sun_degs, epoch_days, charam_degs, pranam_degs,
-    mandaphalam_secs, longitude_degs, sun_apse_degs, dirn):
+def get_moon_params(input_params, sun_params):
+    """
+    Return dictionary with positions of Moon, Apse, Rahu and Ketu in degrees
+    """
+    long_degs = input_params["long_degs"]
+    long_dirn = input_params["long_dirn"]
     
-# Positions of Moon, Rahu and Ketu are calculated in this function
-        
-    mean_long_moon_degs = get_mean_longitude(epoch_days, 
-        constants.moon_rev_days, constants.mean_moon_long_at_epoch)
-   
-    apse_epoch = constants.moon_apse_at_epoch
-    apse_revolution_days = constants.moon_apse_revolution_days
-    mean_apse_degs = get_moon_cur_pos(apse_epoch, apse_revolution_days,
-        epoch_days)
+    mean_sun_degs = sun_params["mean_long"]
+    epoch_days = sun_params["d_epoch"]
+    charam_degs = sun_params["charam"]
+    pranam_degs = sun_params["pranam"]
+    mandaphalam_secs = sun_params["eqnc"]
+    sun_apse_degs = sun_params["apse"] 
     
-    rahu_epoch = constants.moon_rahu_at_epoch
-    rahu_revolution_days = constants.moon_rahu_revolution_days
-    mean_rahu_degs = get_moon_cur_pos(rahu_epoch, rahu_revolution_days, 
-        epoch_days)
-        
-    net_corr_mins = get_net_correction(charam_degs, mandaphalam_secs, 
-        pranam_degs, longitude_degs, dirn)
+    moon_epoch = cn.mean_moon_long_at_epoch
+    moon_rev_days = cn.moon_rev_days
+    mean_moon_degs = get_mean_longitude(epoch_days, moon_rev_days, moon_epoch)
     
-    mmc = constants.moon_motion
-    amc = constants.apse_motion
-    smc = constants.sun_motion
-    mean_long_moon_degs = add_correction(mean_long_moon_degs, net_corr_mins,mmc)
-    mean_apse_degs = add_correction(mean_apse_degs, net_corr_mins, amc)
-    mean_long_sun_degs = add_correction(mean_long_sun_degs, net_corr_mins, smc)
+    apse_epoch = cn.moon_apse_at_epoch
+    apse_rev_days = cn.moon_apse_revolution_days
+    mean_apse_degs = get_mean_longitude(epoch_days, apse_rev_days, apse_epoch)
     
-    second_corr_mins = get_moon_annual_variation(mandaphalam_secs) + \
-        get_evection(mean_long_moon_degs, mean_long_sun_degs, mean_apse_degs) + \
-        get_variation(mean_long_moon_degs, mean_long_sun_degs)
-    
-    second_corr_degs = second_corr_mins / constants.minutes_in_degree
-    mean_long_moon_degs = find_sum_degs([mean_long_moon_degs, second_corr_degs])
-    true_long_moon_degs = find_sum_degs([mean_long_moon_degs, mean_apse_degs])
-    ecli_moon_degs = find_sum_degs([true_long_moon_degs, mean_rahu_degs])
-    
-    final_corr_mins = get_moon_final_correction(mean_long_sun_degs, 
-        mean_long_moon_degs, sun_apse_degs, mean_apse_degs, mean_rahu_degs)
-    true_long_moon_degs = find_sum_degs([true_long_moon_degs, final_corr_mins])
-    
+    rahu_epoch = cn.moon_rahu_at_epoch
+    rahu_rev_days = cn.moon_rahu_revolution_days
+    mean_rahu_degs = get_mean_longitude(epoch_days, rahu_rev_days, rahu_epoch, 
+        rahu = True)
     mean_ketu_degs = find_sum_degs([mean_rahu_degs, 180])
-    return true_long_moon_degs, mean_rahu_degs, mean_ketu_degs
     
-def get_true_long_planet(mean_long_planet_degs, mandaphalam_secs):
-    mandaphalam_degs = mandaphalam_secs / 3600.00
-    true_long_planet_degs =  find_sum_degs([mean_long_planet_degs, 
-        mandaphalam_degs])
+    net_corr_mins = get_net_correction(charam_degs, mandaphalam_secs, 
+        pranam_degs, long_degs, long_dirn)
+    
+    mmc = cn.moon_motion
+    amc = cn.apse_motion
+    smc = cn.sun_motion
+    mean_moon_corr_degs = add_correction(mean_moon_degs, net_corr_mins, mmc)
+    mean_apse_corr_degs = add_correction(mean_apse_degs, net_corr_mins, amc)
+    mean_sun_corr_degs = add_correction(mean_sun_degs, net_corr_mins, smc)
+    # print "mean_moon_degs = ", mean_moon_degs
+    # print "mean_apse_degs = ", mean_apse_degs
+    # print "mean_sun_degs = ", mean_sun_degs
+    # print "net_corr_mins = ", net_corr_mins
+    # print "mean_moon_corr_degs = ", mean_moon_corr_degs
+    # print "mean_apse_corr_degs = ", mean_apse_corr_degs
+    # print "mean_sun_corr_degs = ", mean_sun_corr_degs
+
+    annual_var_mins = get_moon_annual_variation(mandaphalam_secs)
+    evection_mins = get_evection(mean_moon_corr_degs, mean_sun_corr_degs, 
+        mean_apse_corr_degs)
+    var_mins = get_variation(mean_moon_corr_degs, mean_sun_corr_degs)
+    second_corr_mins = annual_var_mins + evection_mins + var_mins
+    second_corr_degs = second_corr_mins / cn.minutes_in_degree
+    # print "annual_var_mins = ", annual_var_mins
+    # print "evection_mins = ", evection_mins
+    # print "var_mins = ", var_mins
+    # print "second_corr_mins = ", second_corr_mins
+    
+    mean_long_moon_degs = find_sum_degs([mean_moon_corr_degs, second_corr_degs])
+    mean_anomaly_degs = find_diff_degs(mean_apse_corr_degs, mean_long_moon_degs)
+    eqn_secs = get_equation_of_centre(cn.moon_eccentricity, mean_anomaly_degs)
+    true_moon_degs = get_true_longitude(mean_long_moon_degs, eqn_secs)
+    # print "mean_long_moon_degs = ", mean_long_moon_degs
+    # print "true_moon_degs = ", true_moon_degs
+    
+    ecli_moon_degs = get_ecliptic_moon(true_moon_degs, mean_rahu_degs)
+    final_corr_degs = get_moon_final_correction(mean_sun_corr_degs, 
+        mean_long_moon_degs, sun_apse_degs, mean_apse_corr_degs, mean_rahu_degs)
+    true_long_moon_degs = find_sum_degs([ecli_moon_degs, final_corr_degs])
+    # print "ecli_moon_degs = ", ecli_moon_degs
+    # print "final_corr_degs = ", final_corr_degs
+    # print "true_long_moon_degs = ", true_long_moon_degs
+    
+    moon_params = dict()
+    moon_params["apse"] = mean_apse_degs
+    moon_params["moon"] = true_long_moon_degs
+    moon_params["rahu"] = mean_rahu_degs
+    moon_params["ketu"] = mean_ketu_degs
+    
+    return moon_params
     
 def get_helio_velocity(net_corr_mins, ma_degs, e):
     # ma = mean anomaly, and e = eccentricity
-    ma = ma_degs * constants.rads_per_degree
+    """
+    Return the heliocentric velocity in degrees
+    """
+    ma = ma_degs * cn.rads_per_degree
     vel_mins = net_corr_mins * (1.0 - 2.0 * e * math.cos(ma)
                            + 5.0 * e * e * math.cos(2.0 * ma) / 2.0
                            - (e * e * e / 4.0) * (13.0 * math.cos(3.0 * ma)
@@ -918,7 +1063,7 @@ def get_helio_velocity(net_corr_mins, ma_degs, e):
     vel_degs = vel_mins / 60.0
     return vel_degs
 
-def get_longitude_along_ecliptic(epoch_node_degs, tlpd, orbit_degs, 
+def get_longitude_along_ecliptic(epoch_node_degs, tlpd, inclination_rads, 
                                  node_vel, years_elapsed):
     node_motion_secs = (node_vel * years_elapsed) + 0.5
     # find the absolute of the node_motion
@@ -927,27 +1072,26 @@ def get_longitude_along_ecliptic(epoch_node_degs, tlpd, orbit_degs,
     node_motion_degs = node_motion_secs / 3600.0
     cur_node_degs = find_diff_degs(epoch_node_degs, node_motion_degs)
     angle_node_planet_degs = find_diff_degs(tlpd, cur_node_degs)
-    anp_rads = angle_node_planet_degs * constants.rads_per_degree
-    inclination_rads = orbit_degs * constants.rads_per_degree
+    anp_rads = angle_node_planet_degs * cn.rads_per_degree
     dis_rads = math.atan(math.cos(inclination_rads) * math.tan(anp_rads))
-    dis_degs = dis_rads * constants.degs_per_radian
-    dis_degs = find_near_value(angle_node_planet_degs, dis_degs)
+    dis_degs = dis_rads * cn.degs_per_radian
+    dis_degs = get_near_value(angle_node_planet_degs, dis_degs)
     long_along_ecliptic_degs = find_sum_degs([cur_node_degs, dis_degs])
     return angle_node_planet_degs, long_along_ecliptic_degs
 
 def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads, 
-                      node_planet_rads, rad_vec, inferior, pos, rad_vec_sun,
+                      node_planet_rads, rad_vec, inferior, rad_vec_sun,
                       true_long_sun_degs, hvel_sun_degs):
     pm_rads = math.asin(math.sin(inc_rads) * math.sin(node_planet_rads))
     sm = rad_vec * math.cos(pm_rads)
     se = rad_vec_sun # Earth with respect to Sun
     gama_se_degs = find_sum_degs([true_long_sun_degs, 180])
-    gama_se_rads = gama_se_degs * constants.rads_per_degree
+    gama_se_rads = gama_se_degs * cn.rads_per_degree
     gama_sm_degs = true_long_planet_degs
-    gama_sm_rads = gama_sm_degs * constants.rads_per_degree
+    gama_sm_rads = gama_sm_degs * cn.rads_per_degree
 
     angle_mse_degs = find_diff_degs(gama_sm_degs, gama_se_degs)
-    angle_mse_rads = angle_mse_degs * constants.rads_per_degree
+    angle_mse_rads = angle_mse_degs * cn.rads_per_degree
     em = math.sqrt(sm * sm + se * se - 2.0 * sm * se * math.cos(angle_mse_rads))
     sine_value = (se / em) * math.sin(angle_mse_rads)
     # Crop the sine value within the limits of -1 and 1
@@ -956,7 +1100,7 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
     if sine_value < -1:
         sine_value = -1
     angle_sme_rads = math.asin(sine_value)
-    angle_sme_degs = angle_sme_rads * constants.degs_per_radian
+    angle_sme_degs = angle_sme_rads * cn.degs_per_radian
     
     if inferior == 0: # Superior Planet (Outside earth orbit)
         if angle_sme_degs > 90.0:
@@ -965,9 +1109,9 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
         tangle_mse_degs = angle_mse_degs
         if tangle_mse_degs > 180.0:
             tangle_mse_degs = find_diff_degs(360, tangle_mse_degs)
-        tangle_mse_rads = tangle_mse_degs * constants.rads_per_degree
+        tangle_mse_rads = tangle_mse_degs * cn.rads_per_degree
         angle_mes_rads = math.asin(sm * math.sin(tangle_mse_rads) / em)
-        angle_mes_degs = angle_mes_rads * constants.degs_per_radian
+        angle_mes_degs = angle_mes_rads * cn.degs_per_radian
         tangle_mse_degs = abs(tangle_mse_degs) + abs(angle_sme_degs) + \
                           abs(angle_mes_degs)
         if abs(tangle_mse_degs - 180) > 2:
@@ -976,13 +1120,13 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
             else:
                 angle_sme_degs = find_diff_degs(-180, angle_sme_degs)
 
-    angle_sme_rads = angle_sme_degs * constants.rads_per_degree
+    angle_sme_rads = angle_sme_degs * cn.rads_per_degree
     true_long_planet_degs = find_sum_degs([true_long_planet_degs, 
         angle_sme_degs])
         
     sine_value = math.sin(inc_rads) * math.sin(node_planet_rads)
     planet_lat_rads = math.atan((rad_vec / em) * math.sin(sine_value))
-    planet_lat_degs = planet_rads * constants.degs_per_radian
+    planet_lat_degs = planet_lat_rads * cn.degs_per_radian
 
     vel_diff_degs = find_diff_degs(hvel_degs, hvel_sun_degs)
     geo_vel_adder = ((se / em) * (math.cos(angle_mse_rads) / 
@@ -992,41 +1136,61 @@ def get_geo_longitude(true_long_planet_degs, hvel_degs, inc_rads,
     geo_vel_degs = find_sum_degs([hvel_degs, geo_vel_adder])
     return geo_vel_degs, true_long_planet_degs, planet_lat_degs
     
-def jupiter_correction(mean_long_degs, datetimeIST):
-    t = get_years_elapsed(datetimeIST, constants.jupiter_base)
+def jupiter_correction(mean_long_degs, ist_time):
+    t = get_years_elapsed(ist_time, cn.jupiter_base)
     h = 18.129 * (t - 241.75) - (41 + (11/60.0));
     sj = 0.4074926;
 
-    t_rad = t * constants.rads_per_degree
-    h_rad = h * constants.rads_per_degree
+    t_rad = t * cn.rads_per_degree
+    h_rad = h * cn.rads_per_degree
     
     adj_min = 20.8 * math.sin(t_rad * sj) - 1.3783 * math.sin(h_rad) \
         + 3.4050 * math.sin(2.0 * h_rad)  + 0.2830 * math.sin(3.0 * h_rad);
     
-    adj_deg = adj_min / 60.0;
+    adj_degs = adj_min / 60.0;
     
     return (mean_long_degs + adj_degs)
 
-def saturn_correction(mean_long_degs, datetimeIST):
-    t = get_years_elapsed(datetimeIST, constants.saturn_base)
+def saturn_correction(mean_long_degs, ist_time):
+    t = get_years_elapsed(ist_time, cn.saturn_base)
     x1 = 168.48 - 5.8945 * t
     x2 = 243.15 - 11.794 * t
     sj = 0.4074926;
     
-    t_rad  =  t * constants.rads_per_degree
-    x1_rad = x1 * constants.rads_per_degree
-    x2_rad = x2 * constants.rads_per_degree
+    x1_rad = x1 * cn.rads_per_degree
+    x2_rad = x2 * cn.rads_per_degree
+    sj_rad = sj * cn.rads_per_degree
+    
+    adj_min = -48.7 * math.sin(t * sj_rad) \
+        +  7.0 * math.sin(x1_rad) + 10.85 * math.sin(x2_rad);
 
-    adj_min = - 48.7 * math.sin(t_rad * sj) \
-        +  7.00 * math.sin(x1_rad) + 10.85 * math.sin(x2_rad);
-
-    adj_deg = adj_min / 60.0;
+    adj_degs = adj_min / 60.0;
 
     return (mean_long_degs + adj_degs)
     
+def get_seven_planets(sun_params, moon_params):
+    planet_dict = cn.planet_dict
+    
+    ist_time = sun_params["ist_time"]
+    years_elapsed = sun_params["y_epoch"]
+    epoch_days = sun_params["d_epoch"]
+    true_long_sun_degs = sun_params["true_long"]
+    hvel_sun_degs = sun_params["hvel"]
+    radius_vect_sun = sun_params["rad"]
+    ketu_long = moon_params["ketu"]
+    
+    seven_planets = dict()
+    for name in planet_dict.keys():
+        planet = planet_dict[name]
+        seven_planets[name] = get_planet_params(planet, ist_time, 
+            years_elapsed, epoch_days, true_long_sun_degs, hvel_sun_degs, 
+            radius_vect_sun, ketu_long)
+            
+    return seven_planets
+        
+def get_planet_params(planet, ist_time, years_elapsed, epoch_days, 
+    true_long_sun_degs, hvel_sun_degs, radius_vect_sun, mean_ketu_degs):
 
-def planet_positions(planet, epoch_days, mean_ketu_degs, years_elapsed, radius_vec_sun,
-                    true_long_sun_degs, hvel_sun_degs, datetimeIST):
     lsma = planet.length_semi_major_axis
     eccentricity = planet.eccentricity
     apse_motion = planet.apse_motion
@@ -1043,34 +1207,48 @@ def planet_positions(planet, epoch_days, mean_ketu_degs, years_elapsed, radius_v
                                         planet.mean_long_at_epoch)
     
     if planet.name == "JUPITER":
-        mean_long_degs = jupiter_correction(mean_long_degs, datetimeIST)
+        mean_long_degs = jupiter_correction(mean_long_degs, ist_time)
 
     if planet.name == "SATURN":
-        mean_long_degs = saturn_correction(mean_long_degs, datetimeIST)
+        mean_long_degs = saturn_correction(mean_long_degs, ist_time)
                                         
     mean_long_degs = add_correction(mean_long_degs, net_corr_mins,
                                     mean_ketu_degs)
         
     apse_position_degs = get_apse_position_degs(mmae, apse_motion, 
-                                                years_elapsed)
+        years_elapsed)
     mean_anomaly_degs = get_mean_anomaly_degs(apse_position_degs, 
-                                              mean_long_degs)
+        mean_long_degs)
     mandaphalam_secs = get_equation_of_centre(eccentricity, mean_anomaly_degs)
-    true_long_degs = get_true_long_planet(mean_long_degs, 
-                                          mandaphalam_secs)
+    true_long_degs = get_true_longitude(mean_long_degs, mandaphalam_secs)
     hvel_degs = get_helio_velocity(net_corr_mins, mean_anomaly_degs,
                                    eccentricity)
     radius_vec = get_radius_vector(apse_position_degs, true_long_degs, 
                                    eccentricity, lsma)
-    mars_to_node_degs, true_long_degs = get_longitude_along_ecliptic(mmne, 
-        true_long_degs, orbit_degs, node_motion)
-    mars_to_node_rads = mars_to_node_degs * constants.rads_per_degree
+    inc_rads = orbit_degs * cn.rads_per_degree
+    planet_node_degs, true_long_degs = get_longitude_along_ecliptic(mmne, 
+        true_long_degs, inc_rads, node_motion, years_elapsed)
+    planet_node_rads = planet_node_degs * cn.rads_per_degree
     
     inferior = 0
     if planet.name == "MERCURY" or  planet.name == "VENUS":
         inferior = 1
         
-    geo_vel_degs, true_long_degs, mars_lat_degs = get_geo_longitude(
-        true_long_degs, hvel_degs, inc_rads, mars_to_node_rads, radius_vec, 
-        inferior, radius_vec_sun, true_long_sun_degs, hvel_sun_degs)
+    geo_vel_degs, true_long_degs, planet_lat_degs = get_geo_longitude(
+        true_long_degs, hvel_degs, inc_rads, planet_node_rads, radius_vec, 
+        inferior, radius_vect_sun, true_long_sun_degs, hvel_sun_degs)
     
+    planet_params = dict()
+    planet_params["name"] = planet.name
+    planet_params["mean_long"] = mean_long_degs
+    planet_params["apse"] = apse_position_degs
+    planet_params["anom"] = mean_anomaly_degs
+    planet_params["mand"] = mandaphalam_secs
+    planet_params["hvel"] = hvel_degs
+    planet_params["rad"] = radius_vec
+    planet_params["node"] = planet_node_degs
+    planet_params["gvel"] = geo_vel_degs
+    planet_params["true_long"] = true_long_degs
+    planet_params["lat"] = planet_lat_degs
+    
+    return planet_params

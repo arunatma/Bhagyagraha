@@ -45,8 +45,6 @@ min_angle_in_one_day = deg_angle_in_one_day * 60.0
 solar_days_in_year = 365.242216
 sidereal_days_in_year = 365.256374
 
-
-
 precession_per_year_in_sec = 50.2564
 apse_movement_per_year_in_sec = 11.63
 
@@ -172,3 +170,83 @@ class Neptune:
     mean_node_at_epoch = degminsec_to_deg(3*30.0 + 18, 13,  9)
     orbit_inclination_degs = degminsec_to_deg(1, 46, 54)
     
+# Total 12 grahas 8 + Moon + Lagn + Rahu + Ketu  (No Pluto!)    
+graha_names =  ["LAGN", "SUN ", "MOON", "MARS", "MERC", "JUPT",
+                "VENU", "SATN", "URAN", "NEPT", "RAHU", "KETU"]
+
+# Total 12 Month names                
+saka_month_names = ["Chaitra",    "Vaisaka", "Jyaistha", "Asadaha", 
+                    "Sravana",    "Bhadra",  "Asvina",   "Kartika",
+                    "Agrahayana", "Pausa",   "Magha",    "Phalguna"]
+
+# Total 12 Month names
+tamil_month_names = ["Chittirai", "Vaikasi",    "Aaani",   "Aadi",
+                     "Aavani",    "Purattaasi", "Aippasi", "Kaarthigai",
+                     "Maargazhi", "Thai",       "Maasi",   "Panguni"]
+                     
+# Total 12 Month names                     
+malayalam_month_names = ["(Mesham)", "(Rishabam)", "(Mithunam)", "(Kadagam)",
+                         "(Simmam)", "(Kanni)",    "(Thulam)",   "(Viruchigam)",
+                         "(Dhanusu)","(Magaram)",  "(Kumbam)",   "(Meenam)"]
+
+# Total 60 tamil years                         
+tamil_year_names = [
+    "Prabhava",   "Vibhava",     "Sukla",       "Pramodha",    "Prajoth",      "Aangirasa",
+    "Sreemuga",   "Bhava",       "Yuva",        "Thaatru",     "Easwara",      "Bagudhanya",
+    "Pramaadhi",  "Vikrama",     "Virusha",     "Chitrabaanu", "Subaanu",      "Dhaarana",
+    "Paarthiva",  "Vyaya",       "Sarvajith",   "Sarvadhaari", "Virodhi",      "Vikrudhi",
+    "Gara",		  "Nandhana",    "Vijaya",      "Jaya",		   "Manmadha",     "Dhurmuga",
+    "Hemalamba",  "Vilambhi",    "Vigaari",     "Saarvari",    "Plava",        "Subhakruth",
+    "Sobhakruth", "Krodhi",      "Visuvaavaga", "Paraabhava",  "Plavanga",     "Keelaga",
+    "Sowmya",     "Saadhaarana", "Virodha",     "Paridhaavi",  "Pramaadheesa", "Aanandha",
+    "Raakshasa",  "Nala",        "Bingala",     "Kaalayuktha", "Siddhaartha",  "Raudhra",
+    "Dhurmadhi",  "Thundhubi",   "Rudhirodh",   "Rakthaaksha", "Krodhana",     "Akshaya"]
+
+# Total 16 thithi (14 + amavasya and pournami)
+thithi_names = ["Prathamai",  "Dwithiai",   "Thrithiai", "Chathurthi",
+                "Panchami",   "Sashti",     "Sapthami",  "Ashtami",
+                "Navami",     "Dasami",     "Ekadasi",   "Dwadasi",
+                "Thrayodasi", "Chaturdasi", "Poornima",  "Amavasya"]
+
+# Total 27 Yogams                
+yogam_names = ["Viskumbha", "Priti",     "Ayusman",  "Saubhagya", "Sobhana",
+               "Atiganda",  "Sukarma",   "Dhriti",   "Sula",      "Ganda",
+               "Vriddhi",   "Dhruva",    "Vyaghata", "Harshana",  "Vajra",
+               "Siddhi",    "Vyatipata", "Variyan",  "Parigha",   "Siva",
+               "Siddha",    "Sadhya",    "Subha",    "Sukla",     "Brahma",
+               "Indra",     "Vaidhriti"]
+
+# Total 11 Karanams               
+karanam_names = ["Bava",   "Balava", "Kaulava",    "Taitila", "Gara", "Vanij",
+                 "Vishti", "Sakuni", "Chatuspada", "Naaga",   "Kinstughna"]
+
+week_days = ["Sunday",   "Monday", "Tuesday", "Wednesday", 
+             "Thursday", "Friday", "Saturday"]
+             
+nakshatra_names = ["Aswini",      "Bharani",      "Krittiga",  "Rohini", 
+                   "Mrigasirsha", "Ardra",        "Punarvasu", "Pushyam",
+                   "Aslesha",     "Makam",        "Pooram",    "Uttiram",
+                   "Hastham",     "Chitrai",      "Swathi",    "Vishakam",
+                   "Anusham",     "Jyeshta",      "Moolam",    "Purvashada",
+                   "Uthirashada", "Sravanam",     "Dhanishta", "Sadabhisha",
+                   "Poorattathi", "Uttirattathi", "Revathi"]
+
+def getNewDict(keyList, valueList):
+    """ Return a dictionary, initialized using two lists """
+    newDict = dict()
+    newDict.fromkeys(keyList)
+    assert(len(keyList) == len(valueList))
+    for i in range(len(keyList)):
+        newDict[keyList[i]] = valueList[i]
+        
+    return newDict
+                   
+# Take care that the items in planets and valueList are in appropriate order
+planet_names = ["MARS", "MERCURY", "JUPITER", "VENUS", "SATURN", "URANUS", 
+    "NEPTUNE"]
+    
+planet_props = [Mars(), Mercury(), Jupiter(), Venus(), Saturn(), Uranus(), 
+    Neptune()]
+    
+planet_dict = getNewDict(planet_names, planet_props)
+

@@ -119,7 +119,7 @@ def get_days_from_epoch(localtm):
         
 def get_equation_of_centre(e, mean_anomaly_degs):
     """
-    Return the mean longitude of sun, given local time in datetime type
+    Return the equation of center (mandaphalam) in seconds
     """
     ma = mean_anomaly_degs * cn.rads_per_degree
     
@@ -423,7 +423,12 @@ def get_all_planets():
     lagn_params   = get_lagn_params(input_params, sun_params)
     seven_planets = get_seven_planets(sun_params, moon_params)
     
-    return (sun_params, moon_params, lagn_params, seven_planets)
+    sun_moon_lagn = dict()
+    sun_moon_lagn["SUN"] = sun_params
+    sun_moon_lagn["MOON"] = moon_params
+    sun_moon_lagn["LAGN"] = lagn_params
+    
+    return dict(sun_moon_lagn.items() + seven_planets.items())
     
 def calc_tamil_date(input_params, fine_tuning = True):  
     """

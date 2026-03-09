@@ -290,7 +290,10 @@ def get_net_correction(charam_degs, mandaphalam_secs, pranam_degs,
         longitude_degs = -longitude_degs
     mandaphalam_degs = mandaphalam_secs / cn.seconds_in_degree
     cha_man_pra = find_sum_degs([charam_degs, mandaphalam_degs, pranam_degs])
-    net_corr_degs = find_diff_degs(cha_man_pra, longitude_degs)
+    # Use raw subtraction (not modulo) to match C behavior: result can be negative
+    # find_diff_degs wraps to 0-360 in Python but C keeps negative values,
+    # which causes a ~12-degree error in Moon and ~1-degree error in Sun.
+    net_corr_degs = cha_man_pra - longitude_degs
     net_corr_mins = net_corr_degs * cn.minutes_in_degree
     # print "charam_degs = ", charam_degs
     # print "mandaphalam_degs = ", mandaphalam_degs
@@ -389,9 +392,10 @@ def get_sun_params(input_params):
     sun_params["ha"] = hour_angle_degs
     sun_params["charam"] = charam_degs
     sun_params["pranam"] = pranam_degs
+    sun_params["net_corr"] = net_corr_min
     sun_params["rise"] = sunrise_dt
     sun_params["set"] = sunset_dt
-    
+
     return sun_params
     
 def get_lagn_params(input_params, sun_params):
@@ -428,95 +432,84 @@ def get_all_planets():
     sun_moon_lagn["MOON"] = moon_params
     sun_moon_lagn["LAGN"] = lagn_params
     
-    return dict(sun_moon_lagn.items() + seven_planets.items())
+    return {**sun_moon_lagn, **seven_planets}
     
-def calc_tamil_date(input_params, fine_tuning = True):  
+def _sun_triple(params):
+    """Helper: call get_sun_params and return (true_long, sunrise, sunset)."""
+    sp = get_sun_params(params)
+    return sp["true_long"], sp["rise"], sp["set"]
+
+def calc_tamil_date(input_params, fine_tuning = True):
     """
     Return Tamil Day, Month and Year
     Input: Local Time
     """
-    # localtm is of type "datetime"
     cur_params = input_params.copy()
     original_time = cur_params["in_datetime"]
-    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-    
+    sun_long_pos, sunrise_time, sunset_time = _sun_triple(cur_params)
+
     if sunrise_time <= cur_params["in_datetime"] <= sunset_time:
-        # Add 5 minutes - Not sure why, need to check
-        cur_params["in_datetime"] += dt.timedelta(0, 300)
-        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-    
-    tamil_month_num = sun_long_pos / cn.deg_in_house
-    
-    # Make the target position as closest multiple of 30 less than sunlongpos
+        # Move to just after sunset so Tamil month/day calculation uses sunset position
+        cur_params["in_datetime"] = sunset_time + dt.timedelta(0, 300)
+        sun_long_pos, sunrise_time, sunset_time = _sun_triple(cur_params)
+
+    tamil_month_num = int(sun_long_pos / cn.deg_in_house)
+
+    # Target is the start of the current Tamil month (multiple of 30°)
     target_pos = tamil_month_num * cn.deg_in_house
-    
-    # The objective is to find when exactly the sun crosses the target_pos
-    # That will be counted as day 1 if it falls between sunrise and sunset
-    # If the crossing happens after the sunset, Day 1 starts from the next day
-    
+
+    # Go backward day by day until sun position is before the month boundary
     tamil_day = 1
     while sun_long_pos > target_pos:
         if abs(sun_long_pos - target_pos) > 330:
             sun_long_pos -= 360
             break
-        
-        # Go one day prior and recalculate sun's position
-        cur_params["in_datetime"] -= dt.timedelta(1,0)
-        # Increase the count by one for every one day gone in reverse
+        cur_params["in_datetime"] -= dt.timedelta(1, 0)
         tamil_day += 1
-        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-        
-    # Now, gone back in days such that sun's position is less than target
-    # Increment minute by minute to find where it crosses the target degrees
+        sun_long_pos, sunrise_time, sunset_time = _sun_triple(cur_params)
+
+    # Go forward minute by minute until sun crosses the month boundary
     while sun_long_pos < target_pos:
         if abs(sun_long_pos - target_pos) > 330:
             sun_long_pos -= 360
             break
 
-        # Store the current time to check if the crossing happens pas 00:00 hrs
-        saved_time = cur_params["in_datetime"]
-        # Go one minute ahead and recalculate sun's position
+        saved_date = cur_params["in_datetime"].date()
         cur_params["in_datetime"] += dt.timedelta(0, 60)
-        
-        if dt.datetime(saved_time.year, saved_time.month, 
-            saved_time.day) == dt.datetime(cur_params["in_datetime"].year, 
-            cur_params["in_datetime"].month, cur_params["in_datetime"].day):
-            # The day is changed, so reduce the count of tamil day
+
+        # If the day ticked over, decrement the tamil day count
+        if cur_params["in_datetime"].date() != saved_date:
             tamil_day -= 1
-            
-        sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-        
+
+        sun_long_pos, sunrise_time, sunset_time = _sun_triple(cur_params)
+
         if target_pos == 0:
             sun_long_pos -= 360
-            
+
     cross_time = cur_params["in_datetime"]
-    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-    
-    if cross_time > sunset_time:
+    _, _, sunset_at_cross = _sun_triple(cur_params)
+
+    if cross_time > sunset_at_cross:
         tamil_day -= 1
-        
-    # Reload the original time and recalculate the sun position
+
+    # Reload the original time for fine-tuning check
     cur_params["in_datetime"] = original_time
-    sun_long_pos, sunrise_time, sunset_time = get_sun_params(cur_params)
-    
-    if fine_tuning == True:
-        # Tamil Day or Month starts with the sun rise only
-        # So, if the given time is less than sunrise, go back in count by 1 day
+    _, sunrise_time, _ = _sun_triple(cur_params)
+
+    if fine_tuning:
         if cur_params["in_datetime"] < sunrise_time:
             tamil_day -= 1
-            
             if tamil_day == 0:
-                # Go one day prior and recalculate tamil_day
                 cur_params["in_datetime"] -= dt.timedelta(1, 0)
-                tamil_day = calc_tamil_date(cur_params, fine_tuning = False)
-    
-    # Now algo to calculate the tamil year number - out of total 60 years
-    tamil_year_num = (original_time.year - cn.tamil_year_base) % \
-        cn.total_tamil_years
+                tamil_day, _, _ = calc_tamil_date(cur_params, fine_tuning = False)
+
+    # Tamil year number (0-59 cycle)
+    tamil_year_num = int((original_time.year - cn.tamil_year_base) % \
+        cn.total_tamil_years)
 
     if original_time.month <= 4 and tamil_month_num >= 8:
         tamil_year_num -= 1
-    
+
     return tamil_day, tamil_month_num, tamil_year_num
     
 
@@ -527,7 +520,8 @@ def get_yogam_karanam_thithi(sun_posn_degs, moon_posn_degs):
     """
     # There are totally 30 thithis in Shukla and Krishna Paksham combined
     # So divide the thithi angle by 12 to get the thithi number
-    thithi_angle = find_diff_degs(sun_posn_degs, moon_posn_degs)
+    # Thithi = moon - sun (not sun - moon)
+    thithi_angle = find_diff_degs(moon_posn_degs, sun_posn_degs)
     thithi_divisor = cn.full_circle / cn.total_thithis
     thithi_num = math.floor(thithi_angle / thithi_divisor)
         
@@ -586,7 +580,7 @@ def is_leap_year(given_year):
     Return 1 if given year is leap, else 0
     (Note: This function does not return True / False)
     """
-    if year % 4 != 0 or (year % 100 == 0 and year % 400 != 0):
+    if given_year % 4 != 0 or (given_year % 100 == 0 and given_year % 400 != 0):
         return 0
     else:
         return 1
@@ -716,19 +710,19 @@ def calculate_house(sine_value, ramc_degs, ramc_adder, pole_id,
     Return House Position in degrees
     """
     # Todo: give proper names for ramc_adder and pole_id arguments
-    omega_rads = constant.omega_rads
+    omega_rads = cn.omega_rads
     pole_rads = math.asin(sine_value)
     # Todo: 30 needs to be replaced with appropriate value
     oblasc_degs = find_sum_degs([ramc_degs, ramc_adder])
     oblasc_rads = oblasc_degs * cn.rads_per_degree
-    pole_elev_rads = math.atan((1.0 / math.tan(omega_rads)) * 
+    pole_elev_rads = math.atan((1.0 / math.tan(omega_rads)) *
         math.sin(pole_id * pole_rads / 3.0))
-    
+
     oblasc_sub90_degs = find_diff_degs(oblasc_degs, 90)
     oblasc_sub90_rads = oblasc_sub90_degs * cn.rads_per_degree
-    hlong_rads = math.atan(-1.0 / ((math.tan(pole_elev_rads) * 
-        math.sin(omega_rads) / cos(oblasc_sub90_rads)) + 
-        (math.tan(oblasc_sub90_rads) * cos(omega_rads))))
+    hlong_rads = math.atan(-1.0 / ((math.tan(pole_elev_rads) *
+        math.sin(omega_rads) / math.cos(oblasc_sub90_rads)) +
+        (math.tan(oblasc_sub90_rads) * math.cos(omega_rads))))
     hlong_degs = hlong_rads * cn.degs_per_radian
     
     general_diff = find_diff_degs(oblasc_degs, hlong_degs)
@@ -794,41 +788,59 @@ def get_house_positions(nirayana_lagn, nirayana_dhasa, latitude_degs, ramc_degs,
     
 def get_bhava_positions(house_positions, planet_positions):
     """
-    Return a list of 12 Bhava Positions
+    Return a list of 12 Bhava Positions (which bhava each planet falls in).
+    Mirrors C PrintBhava()/PrintHouse() logic: compute midpoints between
+    adjacent house cusps, then classify each planet into a bhava segment.
     """
-    house1_degs = [0] * 12
-    house2_degs = [0] * 12
-    for i in range(0, 12):
-        cur_house_degs = house_positions[i]
-        pre_house_degs = house_positions[(i - 1) % 12]
-        nxt_house_degs = house_positions[(i + 1) % 12]
-        
-        # Simpler logic to find the House1 and House2 Position (compared to C code)
-        house1_degs = find_sum_degs([cur_house_degs, pre_house_degs])
-        if (abs(cur_house_degs - pre_house_degs) > 90):
-            house1_degs[i] = find_sum_degs([house1_degs, 180])
+    # Step 1: compute bhava boundaries (midpoints between house cusps)
+    house1_degs = [0.0] * 12  # lower boundary of each bhava
+    house2_degs = [0.0] * 12  # upper boundary of each bhava
+    for i in range(12):
+        cur = house_positions[i]
+        prev = house_positions[(i - 1) % 12]
+        nxt  = house_positions[(i + 1) % 12]
 
-        house2_degs = find_sum_degs([cur_house_degs, nxt_house_degs])
-        if (abs(cur_house_degs - nxt_house_degs) > 90):
-            house2_degs[i] = find_sum_degs([house2_degs, 180])
+        # Lower boundary: midpoint with previous cusp
+        f1, f2 = cur, prev
+        if abs(int(f1 - f2)) > 90:
+            mid = f1 + ((360 - f1) + f2) / 2.0
+            if mid > 360: mid -= 360
+            house1_degs[i] = mid
+        else:
+            house1_degs[i] = (f1 + f2) / 2.0
 
-    lagn_house = planet_positions[0] % 30.0
-    bhava_positions = list()
-    for i in range(0, 12):
-        planet_pos_degs = planet_positions[i]
-        for j in range(0, 12):
-            if (planet_pos_degs >= house1_degs or 
-                planet_pos_degs < house2_degs):
-                bhava_num = (j + lagn_house) % 12
-                bhava_positions.append(bhava_num)
+        # Upper boundary: midpoint with next cusp
+        f1, f2 = cur, nxt
+        if abs(int(f1 - f2)) > 90:
+            mid = f1 + ((360 - f1) + f2) / 2.0
+            if mid > 360: mid -= 360
+            house2_degs[i] = mid
+        else:
+            house2_degs[i] = (f1 + f2) / 2.0
+
+    lagn_sign = int(planet_positions[0] // 30)
+    bhava_positions = []
+    for i in range(12):
+        pos = planet_positions[i]
+        bhava_num = -1
+        for j in range(12):
+            h1, h2 = house1_degs[j], house2_degs[j]
+            if h2 < h1:  # wraparound segment
+                if (pos >= h1 and pos < 360.0) or (pos >= 0.0 and pos < h2):
+                    bhava_num = (j + lagn_sign) % 12
+            else:
+                if pos >= h1 and pos < h2:
+                    bhava_num = (j + lagn_sign) % 12
+            if bhava_num != -1:
                 break
-    return bhava_positions
+        bhava_positions.append(bhava_num if bhava_num != -1 else 0)
+    return bhava_positions, house1_degs, house2_degs
     
 def get_navamsa_positions(planet_positions):
     """
     Return a list of 12 Navamsa Positions
     """
-    navams_positions = list()
+    navamsa_positions = list()
     for i in range(0, 12):
         planet_pos_degs = planet_positions[i]
         planet_house = (planet_pos_degs // 30.0)
@@ -888,14 +900,14 @@ def get_evection(mean_long_moon_degs, mean_long_sun_degs, mean_moon_apse_degs):
     theta_degs = find_diff_degs(moon_and_apse, double_sun)
     theta_rads = theta_degs * cn.rads_per_degree
     
-    angle_rads = math.atan(-4467.0 / (60.0 * math.sin(theta_rads)))
-    
-    if(theta_degs < 180.0):
-        quadrant_value = angle_degs // 90
-        if(quadrant_value == 0 or quadrant_value == 2):
-            angle_rads += math.pi
-    
-    evection_mins =  (4467.0 * math.cos(angle_rads + theta_rads)) / 60.0
+    # C Evection(): a = atan(...) in degrees; if EvecArg < 180 always add 180
+    # because the condition (n!=2)||(n!=4) is always true in the original C code
+    angle_degs = math.atan(-4467.0 / (60.0 * math.sin(theta_rads))) * cn.degs_per_radian
+    if theta_degs < 180.0:
+        angle_degs += 180.0
+    angle_rads = angle_degs * cn.rads_per_degree
+
+    evection_mins = (4467.0 * math.cos(angle_rads + theta_rads)) / 60.0
     return evection_mins
     
 def get_variation(mean_long_moon_degs, mean_long_sun_degs):
@@ -1184,23 +1196,26 @@ def get_seven_planets(sun_params, moon_params):
     radius_vect_sun = sun_params["rad"]
     ketu_long = moon_params["ketu"]
     
+    sun_net_corr = sun_params["net_corr"]
+
     seven_planets = dict()
     for name in planet_dict.keys():
         planet = planet_dict[name]
-        seven_planets[name] = get_planet_params(planet, ist_time, 
-            years_elapsed, epoch_days, true_long_sun_degs, hvel_sun_degs, 
-            radius_vect_sun, ketu_long)
+        seven_planets[name] = get_planet_params(planet, ist_time,
+            years_elapsed, epoch_days, true_long_sun_degs, hvel_sun_degs,
+            radius_vect_sun, ketu_long, sun_net_corr)
             
     return seven_planets
         
-def get_planet_params(planet, ist_time, years_elapsed, epoch_days, 
-    true_long_sun_degs, hvel_sun_degs, radius_vect_sun, mean_ketu_degs):
+def get_planet_params(planet, ist_time, years_elapsed, epoch_days,
+    true_long_sun_degs, hvel_sun_degs, radius_vect_sun, mean_ketu_degs,
+    sun_net_corr):
 
     lsma = planet.length_semi_major_axis
     eccentricity = planet.eccentricity
     apse_motion = planet.apse_motion
     node_motion = planet.node_motion
-    net_corr_mins = planet.nc
+    daily_motion = planet.nc
     
     mmle = planet.mean_long_at_epoch
     mmae = planet.mean_apse_at_epoch
@@ -1217,28 +1232,28 @@ def get_planet_params(planet, ist_time, years_elapsed, epoch_days,
     if planet.name == "SATURN":
         mean_long_degs = saturn_correction(mean_long_degs, ist_time)
                                         
-    mean_long_degs = add_correction(mean_long_degs, net_corr_mins,
-                                    mean_ketu_degs)
-        
-    apse_position_degs = get_apse_position_degs(mmae, apse_motion, 
+    mean_long_degs = add_correction(mean_long_degs, daily_motion, sun_net_corr)
+
+    apse_position_degs = get_apse_position_degs(mmae, apse_motion,
         years_elapsed)
-    mean_anomaly_degs = get_mean_anomaly_degs(apse_position_degs, 
+    mean_anomaly_degs = get_mean_anomaly_degs(apse_position_degs,
         mean_long_degs)
     mandaphalam_secs = get_equation_of_centre(eccentricity, mean_anomaly_degs)
     true_long_degs = get_true_longitude(mean_long_degs, mandaphalam_secs)
-    hvel_degs = get_helio_velocity(net_corr_mins, mean_anomaly_degs,
+    hvel_degs = get_helio_velocity(daily_motion, mean_anomaly_degs,
                                    eccentricity)
     radius_vec = get_radius_vector(apse_position_degs, true_long_degs, 
                                    eccentricity, lsma)
     inc_rads = orbit_degs * cn.rads_per_degree
-    planet_node_degs, true_long_degs = get_longitude_along_ecliptic(mmne, 
+    planet_node_degs, true_long_degs = get_longitude_along_ecliptic(mmne,
         true_long_degs, inc_rads, node_motion, years_elapsed)
     planet_node_rads = planet_node_degs * cn.rads_per_degree
-    
+    helio_long_degs = true_long_degs  # save before geocentric conversion
+
     inferior = 0
     if planet.name == "MERCURY" or  planet.name == "VENUS":
         inferior = 1
-        
+
     geo_vel_degs, true_long_degs, planet_lat_degs = get_geo_longitude(
         true_long_degs, hvel_degs, inc_rads, planet_node_rads, radius_vec, 
         inferior, radius_vect_sun, true_long_sun_degs, hvel_sun_degs)
@@ -1253,6 +1268,7 @@ def get_planet_params(planet, ist_time, years_elapsed, epoch_days,
     planet_params["rad"] = radius_vec
     planet_params["node"] = planet_node_degs
     planet_params["gvel"] = geo_vel_degs
+    planet_params["helio_long"] = helio_long_degs
     planet_params["true_long"] = true_long_degs
     planet_params["lat"] = planet_lat_degs
     

@@ -593,15 +593,12 @@ def get_ramc(local_longitude, mean_long_sun_degs, dirn, precsn_birth_degs,
     if re.match(r"w|(west)", dirn, re.IGNORECASE):
         local_longitude = -local_longitude
       
-    # Todo: Need to understand what this longitudinal correction is
-    # Right now, just implemented as what is in old C code
-    
-    # Longitude correction in days
-    long_correction = (local_longitude * (59.0 + 8.0/60.0) / 
-        cn.deg_angle_in_one_day)
-    
-    cml_sun = find_diff_degs(mean_long_sun_degs, long_correction)
-    tl_sun = find_sum_degs([cml_sun, precsn_birth_degs])
+    # The C code does not apply a separate longitudinal correction here;
+    # the longitude effect is already captured by the local-time correction
+    # (lt_corr_degs) which uses IST (the birth time already converted to IST).
+    # Applying an extra long_correction subtracted ~12 degrees from RAMC,
+    # pushing Lagna ~12 degrees off the C reference.
+    tl_sun = find_sum_degs([mean_long_sun_degs, precsn_birth_degs])
     ramc_degs = find_sum_degs([tl_sun, lt_corr_degs])
     
     if south_hemi:
@@ -924,10 +921,14 @@ def get_variation(mean_long_moon_degs, mean_long_sun_degs):
         math.sin(tminuscvby2) / 60.0
     return variation_mins
 
-# Not sure why this get_near_value function is written. Need to understand    
+# Not sure why this get_near_value function is written. Need to understand
 def get_near_value(a1, a2):
     n1 = a1 // 90.0
-    n2 = a2 // 90.0
+    # Use C-style truncation-toward-zero (int()) rather than Python floor (//)
+    # for negative a2 values.  When a2 is in (-90, 0), Python's // gives -1
+    # but C's integer division gives 0, so the quadrant-adjustment multiplier
+    # would be 1 too large, adding an extra 90 degrees to the result.
+    n2 = int(a2 / 90.0)
     if (a2 < 0):
         if (a1 > -a2):
             a2 += ((n1 + 1) - n2) * 90.0

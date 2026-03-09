@@ -189,6 +189,21 @@ $RECYCLE.BIN/
 
 
 #############
+## Claude Code
+#############
+
+.claude/
+
+#############
+## Generated / scratch files
+#############
+
+data.txt
+*.html
+debug_*.py
+verify_*.py
+
+#############
 ## Python
 #############
 

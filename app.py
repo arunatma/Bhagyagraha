@@ -384,19 +384,17 @@ def _planets_by_navamsa(navamsa_positions):
     return dict(by_sign)
 
 
-def _planets_by_bhava(bhava_positions, planet_degs, house_positions):
-    """Map house (1-12) → planet list; convert to sign index for the chart."""
-    lagn_sign = int(planet_degs[0] // 30)
+def _planets_by_bhava(bhava_positions):
+    """Map sign index → planet list for the Bhava (house) chart.
+
+    bhava_positions is the 12-element list returned by fn.get_bhava_positions().
+    Each element is the *sign index* (0–11) of the South Indian chart cell where
+    that planet should appear — already offset by the Lagna sign so that the
+    Lagna always falls in its own sign's cell.
+    """
     by_sign = defaultdict(list)
-    for i, degs in enumerate(planet_degs):
-        # Find which house this planet is in by its degree vs house cusps
-        best_house = 0
-        for h in range(12):
-            if degs >= house_positions[h]:
-                best_house = h
-        # Convert house number to sign
-        sign = (lagn_sign + best_house) % 12
-        by_sign[sign].append(GRAHA_DISPLAY[i])
+    for i, sign in enumerate(bhava_positions):
+        by_sign[int(sign)].append(GRAHA_DISPLAY[i])
     return dict(by_sign)
 
 
@@ -429,7 +427,7 @@ def generate_html_report(result):
     # Chart data
     rasi_by_sign  = _planets_by_sign(pd)
     nav_by_sign   = _planets_by_navamsa(nav)
-    bhava_by_sign = _planets_by_bhava({}, pd, house)
+    bhava_by_sign = _planets_by_bhava(result["bhava_positions"])
 
     rasi_chart  = _make_south_indian_chart_html(rasi_by_sign,  "RASI")
     nav_chart   = _make_south_indian_chart_html(nav_by_sign,   "NAVAMSA")
@@ -445,7 +443,7 @@ def generate_html_report(result):
         long_rows += (
             f"<tr><td><b>{nm}</b></td>"
             f"<td align='right'>{d}&deg;</td>"
-            f"<td align='right'>{m}&deg;</td>"
+            f"<td align='right'>{m}&prime;</td>"
             f"<td>{NAKSHATRA[nak]}</td>"
             f"<td>{pada}</td></tr>\n"
         )
@@ -707,7 +705,7 @@ def show_horoscope_tab(result):
     st.subheader("Charts")
     rasi_by_sign  = _planets_by_sign(pd)
     nav_by_sign   = _planets_by_navamsa(nav)
-    bhava_by_sign = _planets_by_bhava({}, pd, house)
+    bhava_by_sign = _planets_by_bhava(result["bhava_positions"])
 
     ch1, ch2, ch3 = st.columns(3)
     with ch1:
@@ -740,7 +738,7 @@ def show_horoscope_tab(result):
         nav_sign  = int(nav[i])
         rows.append({
             "Planet":    nm,
-            "Long":      f"{d}-{m:02d}",
+            "Long":      f"{d}\u00b0{m:02d}\u2032",
             "Rasi":      RASI_NAMES[sign],
             "Nakshatra": NAKSHATRA[nak],
             "Pada":      pada,

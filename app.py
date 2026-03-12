@@ -437,8 +437,8 @@ def generate_html_report(result):
     long_rows = ""
     for i, nm in enumerate(GRAHA_NAMES):
         degs = pd[i]
-        d    = int(degs % 30)
-        m    = int((degs % 30 - d) * 60)
+        d    = int(degs)
+        m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
         long_rows += (
             f"<tr><td><b>{nm}</b></td>"
@@ -732,8 +732,8 @@ def show_horoscope_tab(result):
     for i, nm in enumerate(GRAHA_NAMES):
         degs = pd[i]
         sign = int(degs // 30)
-        d    = int(degs % 30)
-        m    = int((degs % 30 - d) * 60)
+        d    = int(degs)
+        m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
         nav_sign  = int(nav[i])
         rows.append({
@@ -753,9 +753,9 @@ def show_horoscope_tab(result):
     for i in range(12):
         degs = house[i]
         sign = int(degs // 30)
-        d    = int(degs % 30)
-        m    = int((degs % 30 - d) * 60)
-        house_rows.append({"House": i+1, "Long": f"{d}-{m:02d}", "Rasi": RASI_NAMES[sign]})
+        d    = int(degs)
+        m    = int((degs - d) * 60)
+        house_rows.append({"House": i+1, "Long": f"{d}\u00b0{m:02d}\u2032", "Rasi": RASI_NAMES[sign]})
     st.dataframe(pd_lib.DataFrame(house_rows), hide_index=True, use_container_width=True)
 
     st.divider()

@@ -27,9 +27,7 @@ Bhagyagraha/
 ├── constants.py    # Astronomical constants (epoch, eccentricities, etc.)
 ├── compare.py      # Python-vs-C comparison framework
 └── tests/
-    ├── arunram/        # input.txt + expected.out (HOR.OUT reference)
-    ├── anusha/         # input.txt
-    └── warren_buffett/ # input.txt
+    └── name/        # input.txt + expected.out (HOR.OUT reference)
 ```
 
 ## Installation
@@ -62,7 +60,7 @@ Open http://localhost:8501, fill in the birth details in the sidebar, and click
 
 ### Command-line
 
-Create an input file in the same format as `tests/arunram/input.txt` (see Input
+Create an input file in the same format as `tests/name/input.txt` (see Input
 Format below), then:
 
 ```bash
@@ -75,16 +73,16 @@ Compare Python output against a C reference file (HOR.OUT):
 
 ```bash
 # Using a pre-generated reference file
-python compare.py --input data.txt --c-ref tests/arunram/expected.out
+python compare.py --input data.txt --c-ref tests/name/expected.out
 
 # Run the C executable live, then compare
 python compare.py --input data.txt --horos path/to/horos.exe
 
 # Limit to a section: calendar | planets | shadbala | bhava-bala | mutual-disp
-python compare.py --input data.txt --c-ref tests/arunram/expected.out --section planets
+python compare.py --input data.txt --c-ref tests/name/expected.out --section planets
 
 # Show all fields, not just mismatches
-python compare.py --input data.txt --c-ref tests/arunram/expected.out --verbose
+python compare.py --input data.txt --c-ref tests/name/expected.out --verbose
 ```
 
 ## Input Format
@@ -109,13 +107,13 @@ Timezone hours offset from GMT
 Timezone minutes offset from GMT
 ```
 
-Example (`tests/arunram/input.txt` — Arunram, born Salem, India):
+Example (`tests/name/input.txt` — Sample Data, born Salem, India):
 
 ```
-Arunram
-28
-05
-1983
+Sample Data
+15
+08
+1947
  7
  11
 Salem

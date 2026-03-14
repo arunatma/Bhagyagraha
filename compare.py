@@ -8,16 +8,16 @@ Compares the Python (astro.py) horoscope output against the original C program
 Usage
 -----
 # Use an existing HOR.OUT reference file:
-  python compare.py --input data.txt --c-ref tests/arunram/expected.out
+  python compare.py --input data.txt --c-ref tests/name/expected.out
 
 # Run horos.exe live to generate fresh C output, then compare:
   python compare.py --input data.txt --horos ../../../Bhagyagraha/bin/horos.exe
 
 # Show ALL fields (not just mismatches):
-  python compare.py --input data.txt --c-ref tests/arunram/expected.out --verbose
+  python compare.py --input data.txt --c-ref tests/name/expected.out --verbose
 
 # Limit to one section (calendar | planets | bhava-cusps | shadbala | bhava-bala | mutual-disp):
-  python compare.py --input data.txt --c-ref tests/arunram/expected.out --section planets
+  python compare.py --input data.txt --c-ref tests/name/expected.out --section planets
 
 # Run all built-in test cases (requires tests/ directory):
   python compare.py --all-tests [--horos path/to/horos.exe]
@@ -871,8 +871,8 @@ def main():
         if c_text is None:
             sys.exit(1)
     else:
-        # Default: look for tests/arunram/expected.out
-        default_ref = os.path.join(TESTS_DIR, "arunram", "expected.out")
+        # Default: look for tests/name/expected.out
+        default_ref = os.path.join(TESTS_DIR, "name", "expected.out")
         if os.path.isfile(default_ref):
             print(f"[INFO] Using default reference: {default_ref}")
             with open(default_ref, "r", encoding="latin-1") as f:
@@ -880,7 +880,7 @@ def main():
         else:
             print("[ERROR] Provide --c-ref or --horos.  "
                   "Example:\n  python compare.py --input data.txt "
-                  "--c-ref tests/arunram/expected.out", file=sys.stderr)
+                  "--c-ref tests/name/expected.out", file=sys.stderr)
             sys.exit(1)
 
     # Get Python output

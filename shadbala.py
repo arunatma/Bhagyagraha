@@ -906,3 +906,182 @@ def compute_mutual_disp(p_signs, navamsa_signs):
         "rasi": rasi_matrix,
         "navamsa": nava_matrix,
     }
+
+
+# ---------------------------------------------------------------------------
+# 18. Ashtavarga
+# ---------------------------------------------------------------------------
+
+# Lookup table from C SUN.C Ashtavarga() function (ash[8][7][9])
+# Outer dim: source body (0=Sun,1=Moon,2=Mars,3=Mercury,4=Jupiter,5=Venus,6=Saturn,7=Lagna)
+# Inner dim: target planet (0=Sun,1=Moon,2=Mars,3=Mercury,4=Jupiter,5=Venus,6=Saturn)
+# Values: 1-based sign offsets from source body's position that contribute a point
+_ASH = [
+    # from Sun
+    [[1,2,4,7,8,9,10,11],[3,6,7,8,10,11],[3,5,6,10,11],[5,6,9,11,12],
+     [1,2,3,4,7,8,9,10,11],[8,11,12],[1,2,4,7,8,10,11]],
+    # from Moon
+    [[3,6,10,11],[1,3,6,7,10,11],[3,6,11],[2,4,6,8,10,11],
+     [2,5,7,9,11],[1,2,3,4,5,8,9,11,12],[3,6,11]],
+    # from Mars
+    [[1,2,4,7,8,9,10,11],[2,3,5,6,9,10,11],[1,2,4,7,8,10,11],
+     [1,2,4,7,8,9,10,11],[1,2,4,7,8,10,11],[3,5,6,9,11,12],[3,5,6,10,11,12]],
+    # from Mercury
+    [[3,5,6,9,10,11,12],[1,3,4,5,7,8,10,11],[3,5,6,11],
+     [1,3,5,6,9,10,11,12],[1,2,4,5,6,9,10,11],[3,5,6,9,11],[6,8,9,10,11,12]],
+    # from Jupiter
+    [[5,6,9,11],[1,4,7,8,10,11,12],[6,10,11,12],[6,8,11,12],
+     [1,2,3,4,7,8,10,11],[5,8,9,10,11],[5,6,11,12]],
+    # from Venus
+    [[6,7,12],[3,4,5,7,9,10,11],[6,8,11,12],[1,2,3,4,5,8,9,11],
+     [2,5,6,9,10,11],[1,2,3,4,5,8,9,10,11],[6,11,12]],
+    # from Saturn
+    [[1,2,4,7,8,9,10,11],[3,5,6,11],[1,4,7,8,9,10,11],
+     [1,2,4,7,8,9,10,11],[3,5,6,12],[3,4,5,8,9,10,11],[3,5,6,11]],
+    # from Lagna
+    [[3,4,6,10,11,12],[3,6,10,11],[1,3,6,10,11],[1,2,4,6,8,10,11],
+     [1,2,4,5,6,7,9,10,11],[1,2,3,4,5,8,9,11],[1,3,4,6,10,11]],
+]
+
+# Source body: (index into planet_degs list, 2-char abbreviation)
+# planet_degs indices: 0=Lagn,1=Sun,2=Moon,3=Mars,4=Merc,5=Jupt,6=Venu,7=Satn,...
+_ASH_SRC = [(1,"Su"),(2,"Mo"),(3,"Ma"),(4,"Me"),(5,"Ju"),(6,"Ve"),(7,"Sa"),(0,"La")]
+
+# From SUN.H: planet gunakaram per planet and rasi gunakaram per sign
+_GRA_GUN_PRE = [0, 5, 5, 8, 5, 10, 7, 5, 0, 0, 0, 0]   # indices: Lagn,Su,Mo,Ma,Me,Ju,Ve,Sa,Ur,Ne,Ra,Ke
+_RASI_GUN    = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12]  # signs 0-11
+
+
+def _thrikona(thri):
+    """Apply Thrikona Sodhana in-place (SUN.C Thrikona function, lines 2929-2948)."""
+    for k in range(4):
+        a, b, c = thri[k], thri[k + 4], thri[k + 8]
+        if (a == b == c) or (a == 0 and b == 0) or (b == 0 and c == 0):
+            thri[k] = thri[k + 4] = thri[k + 8] = 0
+        elif a > 0 and b > 0 and c > 0:
+            n = min(a, b, c)
+            thri[k] -= n
+            thri[k + 4] -= n
+            thri[k + 8] -= n
+
+
+def _ekathipathya(eka, signs):
+    """Apply Ekathipathya Sodhana in-place (SUN.C Ekathipathya, lines 2951-2991).
+
+    signs: list[12] — current sign (0-11) for each of the 12 bodies.
+    """
+    hfree = [0] * 12
+    for i in range(1, 8):   # Sun(1) through Saturn(7)
+        hfree[signs[i]] = 1
+
+    hrule = [(0, 7), (1, 6), (2, 5), (8, 11), (9, 10)]
+    for h0, h1 in hrule:
+        if eka[h0] > 0 and eka[h1] > 0:
+            occ = hfree[h0] + hfree[h1]
+            if occ == 0:
+                if eka[h0] == eka[h1]:
+                    eka[h0] = eka[h1] = 0
+                else:
+                    n = min(eka[h0], eka[h1])
+                    eka[h0] = eka[h1] = n
+            elif occ == 1:
+                occupied = h0 if hfree[h0] else h1
+                empty    = h1 if hfree[h0] else h0
+                if eka[occupied] >= eka[empty]:
+                    eka[empty] = 0
+                else:
+                    eka[empty] = eka[occupied]
+
+
+def compute_ashtavarga(planet_degs):
+    """Compute Ashtavarga for 7 classical planets + Sarvashtavarga.
+
+    Parameters
+    ----------
+    planet_degs : list[12]  geocentric longitudes for
+                            [Lagn,Sun,Moon,Mars,Merc,Jupt,Venu,Satn,Uran,Nept,Rahu,Ketu]
+
+    Returns
+    -------
+    dict with keys:
+        "planets" : list[7] — one dict per Sun/Moon/Mars/Merc/Jupt/Venu/Satn
+            each dict: "name", "raw"[12], "thri"[12], "eka"[12],
+                       "sodhya_pinda"(int), "contributors"[12]
+        "sarva"   : same structure for Sarvashtavarga (column sums of raw)
+    """
+    signs = [int(d / 30) % 12 for d in planet_degs]
+
+    # Gra-gun: gunakaram contribution per sign
+    gra_gun = [0] * 12
+    for i, g in enumerate(_GRA_GUN_PRE):
+        if i < len(signs):
+            gra_gun[signs[i]] += g
+
+    planet_names = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venu", "Satn"]
+    results = []
+    sarva_raw = [0] * 12
+
+    for p in range(7):   # target planet (0=Sun ... 6=Saturn)
+        cnt = [0] * 12
+        contributors = [[] for _ in range(12)]
+
+        for k, (src_idx, abbr) in enumerate(_ASH_SRC):
+            src_sign = signs[src_idx]
+            for offset in _ASH[k][p]:
+                t = (src_sign + offset - 1) % 12
+                cnt[t] += 1
+                contributors[t].append(abbr)
+
+        thri = cnt[:]
+        _thrikona(thri)
+        eka = thri[:]
+        _ekathipathya(eka, signs)
+        sp = int(sum(eka[i] * (gra_gun[i] + _RASI_GUN[i]) for i in range(12)))
+
+        for i in range(12):
+            sarva_raw[i] += cnt[i]
+
+        results.append({
+            "name": planet_names[p],
+            "raw":  cnt,
+            "thri": thri,
+            "eka":  eka,
+            "sodhya_pinda": sp,
+            "contributors": contributors,
+        })
+
+    # Sarvashtavarga
+    thri_s = sarva_raw[:]
+    _thrikona(thri_s)
+    eka_s = thri_s[:]
+    _ekathipathya(eka_s, signs)
+    sp_s = int(sum(eka_s[i] * (gra_gun[i] + _RASI_GUN[i]) for i in range(12)))
+    sarva = {
+        "name": "Sarva",
+        "raw":  sarva_raw,
+        "thri": thri_s,
+        "eka":  eka_s,
+        "sodhya_pinda": sp_s,
+        "contributors": [[] for _ in range(12)],
+    }
+
+    return {"planets": results, "sarva": sarva}
+
+
+def drig_bala_matrix(p_degs):
+    """Return 7×7 pairwise aspectual strength matrix for HOR.OUT Page 8.
+
+    matrix[i][j] = aspect strength exerted by planet i on planet j.
+    """
+    matrix = [[0.0] * 7 for _ in range(7)]
+    for i in range(7):
+        for j in range(7):
+            if i == j:
+                continue
+            diff = _deg_diff(p_degs[j], p_degs[i])
+            sign = int(diff // 30)
+            if sign > 0:
+                frac = (diff % 30) / 30.0
+                asp = _ASPEX[_ASP_PTR[i]]
+                matrix[i][j] = 0.25 * (asp[sign - 1] + (asp[sign] - asp[sign - 1]) * frac)
+    return matrix

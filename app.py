@@ -830,10 +830,10 @@ def _pdf_ashta_chart(vals, label, cell_w=42, cell_h=28):
     from reportlab.lib import colors
 
     data = [
-        [vals[11], vals[0],  vals[1],  vals[2]],
-        [vals[10], label,    "",        vals[3]],
-        [vals[9],  "",       "",        vals[4]],
-        [vals[8],  vals[7],  vals[6],   vals[5]],
+        [str(vals[11]), str(vals[0]),  str(vals[1]),  str(vals[2])],
+        [str(vals[10]), label,         "",             str(vals[3])],
+        [str(vals[9]),  "",            "",             str(vals[4])],
+        [str(vals[8]),  str(vals[7]),  str(vals[6]),   str(vals[5])],
     ]
     t = Table(data, colWidths=[cell_w] * 4, rowHeights=[cell_h] * 4)
     t.setStyle(TableStyle([
@@ -922,7 +922,7 @@ def _pdf_p1(story, result, styles, mm):
         ("LEFTPADDING",  (0, 0), (-1, -1), 4),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
     ])
-    t2 = Table(pan_data, colWidths=[38 * mm, 58 * mm, 38 * mm, 58 * mm])
+    t2 = Table(pan_data, colWidths=[36 * mm, 56 * mm, 36 * mm, 56 * mm])
     t2.setStyle(ts2)
     story.append(t2)
     story.append(Spacer(1, 5 * mm))
@@ -986,19 +986,15 @@ def _pdf_p2(story, result, styles, mm):
     story.append(t)
     story.append(Spacer(1, 6 * mm))
 
-    # Charts side by side
+    # Charts side by side — use raw ReportLab points (NOT mm) for cell_w/cell_h
+    # _pdf_si_chart colWidths=[cell_w]*4, so chart width = 4*cell_w points
+    # 62 pts ≈ 22mm → each chart = 248 pts ≈ 87.5mm; total = 248+6+248 = 502 pts < 527 ✓
     rasi_by  = _planets_by_sign_r(pd_, retro)
     nav_by   = _planets_by_navamsa_r(nav, retro)
-    rasi_t   = _pdf_si_chart(rasi_by,  "RASI",    cell_w=47, cell_h=36)
-    nav_t    = _pdf_si_chart(nav_by,   "NAVAMSA", cell_w=47, cell_h=36)
-    outer    = Table([[rasi_t, "", nav_t]], colWidths=[192*mm, 6*mm, 192*mm])
-    outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    # Fit both charts side by side on A4 (usable width ~186mm with 12mm margins each)
-    # Use smaller cells
-    rasi_t2  = _pdf_si_chart(rasi_by,  "RASI",    cell_w=42, cell_h=34)
-    nav_t2   = _pdf_si_chart(nav_by,   "NAVAMSA", cell_w=42, cell_h=34)
-    outer2   = Table([[rasi_t2, Spacer(4*mm, 1), nav_t2]],
-                     colWidths=[168*mm, 4*mm, 168*mm])
+    _cw = 62  # raw points per cell
+    rasi_t2  = _pdf_si_chart(rasi_by,  "RASI",    cell_w=_cw, cell_h=34)
+    nav_t2   = _pdf_si_chart(nav_by,   "NAVAMSA", cell_w=_cw, cell_h=34)
+    outer2   = Table([[rasi_t2, "", nav_t2]], colWidths=[_cw * 4, 6, _cw * 4])
     outer2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story.append(outer2)
     story.append(Spacer(1, 6 * mm))
@@ -1042,10 +1038,13 @@ def _pdf_p3(story, result, styles, mm):
     t.setStyle(ts)
 
     bhava_by = _planets_by_bhava_r(result["bhava_positions"], retro)
-    bhava_chart = _pdf_si_chart(bhava_by, "BHAVA", cell_w=42, cell_h=34)
+    # cell_w in raw points; 70 pts ≈ 25mm → chart = 4×70 = 280 pts ≈ 99mm
+    # bhava table (t) = 80mm = ~226 pts; total = 226+6+280 = 512 pts < 527 ✓
+    _cw_b = 70
+    bhava_chart = _pdf_si_chart(bhava_by, "BHAVA", cell_w=_cw_b, cell_h=34)
 
-    outer = Table([[t, Spacer(6*mm, 1), bhava_chart]],
-                  colWidths=[80*mm, 6*mm, 168*mm])
+    outer = Table([[t, "", bhava_chart]],
+                  colWidths=[int(80 * mm), 6, _cw_b * 4])
     outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
     story.append(outer)
     story.append(Spacer(1, 6 * mm))
@@ -1098,7 +1097,7 @@ def _pdf_p4(story, result, styles, mm):
             ("LEFTPADDING",  (0, 0), (-1, -1), 2),
             ("RIGHTPADDING", (0, 0), (-1, -1), 2),
         ])
-        cw = [22*mm] + [20*mm] * len(pnames)
+        cw = [18*mm] + [16*mm] * len(pnames)
         t  = Table(rows, colWidths=cw)
         t.setStyle(ts)
         return t
@@ -1152,13 +1151,17 @@ def _pdf_ashta_section(story, ashta_dict, styles, mm):
         ("VALIGN",   (0,0),(-1,-1), "TOP"),
     ]))
 
-    thri_t = _pdf_ashta_chart(thri, "Thri",  cell_w=38, cell_h=28)
-    eka_t  = _pdf_ashta_chart(eka,  "Eka",   cell_w=38, cell_h=28)
-
-    side = Table([[mt, Spacer(4*mm,1), thri_t, Spacer(4*mm,1), eka_t]],
-                 colWidths=[176*mm, 4*mm, 152*mm, 4*mm, 152*mm])
-    side.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP")]))
-    story.append(side)
+    # mt alone = 4×44mm = 176mm ≈ 499 pts — fits within 527 pt page width ✓
+    story.append(mt)
+    # Thri and Eka charts side by side below the main chart
+    # cell_w in raw points; 62 pts ≈ 22mm → each chart = 4×62 = 248 pts;
+    # total = 248+6+248 = 502 pts < 527 ✓
+    _cw2 = 62
+    thri_t = _pdf_ashta_chart(thri, "Thri", cell_w=_cw2, cell_h=22)
+    eka_t  = _pdf_ashta_chart(eka,  "Eka",  cell_w=_cw2, cell_h=22)
+    side2 = Table([[thri_t, "", eka_t]], colWidths=[_cw2 * 4, 6, _cw2 * 4])
+    side2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(side2)
     story.append(Paragraph(f"Sodhya Pinda: <b>{sp}</b>", styles["Normal"]))
     story.append(Spacer(1, 5*mm))
 
@@ -1219,7 +1222,7 @@ def _pdf_p8(story, result, styles, mm):
         ("LEFTPADDING",  (0,0),(-1,-1), 3),
         ("RIGHTPADDING", (0,0),(-1,-1), 3),
     ])
-    cw = [22*mm] + [24*mm] * 7
+    cw = [22*mm] + [23*mm] * 7  # 22+7*23=183mm < 186mm ✓
     t  = Table(rows, colWidths=cw)
     t.setStyle(ts)
     story.append(t)
@@ -1234,7 +1237,7 @@ def _pdf_p8(story, result, styles, mm):
         ["Ben(+)"] + [f"{v:.2f}" for v in bd],
         ["Mal(-)"] + [f"{v:.2f}" for v in md],
     ]
-    bmt = Table(bm_data, colWidths=[22*mm] + [24*mm]*7)
+    bmt = Table(bm_data, colWidths=[22*mm] + [23*mm]*7)  # 183mm ✓
     bmt.setStyle(ts)
     story.append(bmt)
 
@@ -1313,7 +1316,7 @@ def _pdf_p9(story, result, styles, mm):
         ("LEFTPADDING",  (0,0),(-1,-1), 2),
         ("RIGHTPADDING", (0,0),(-1,-1), 2),
     ])
-    cw2 = [25*mm] + [14*mm]*12
+    cw2 = [22*mm] + [13*mm]*12  # 22+12*13=178mm < 186mm ✓
     t2  = Table(bb_rows, colWidths=cw2)
     t2.setStyle(ts2)
     story.append(t2)

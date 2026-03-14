@@ -102,6 +102,52 @@ WDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday",
 
 SHAD_LABELS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venus", "Saturn"]
 
+# ── City presets (lat, lon in decimal degrees) ────────────────────────────────
+CITIES = {
+    "Custom": None,
+    "Chennai":             {"lat": 13.0827, "lon": 80.2707, "lat_dir": "N", "lon_dir": "E"},
+    "Salem":               {"lat": 11.6643, "lon": 78.1460, "lat_dir": "N", "lon_dir": "E"},
+    "Coimbatore":          {"lat": 11.0168, "lon": 76.9558, "lat_dir": "N", "lon_dir": "E"},
+    "Madurai":             {"lat":  9.9252, "lon": 78.1198, "lat_dir": "N", "lon_dir": "E"},
+    "Bengaluru":           {"lat": 12.9716, "lon": 77.5946, "lat_dir": "N", "lon_dir": "E"},
+    "Hyderabad":           {"lat": 17.3850, "lon": 78.4867, "lat_dir": "N", "lon_dir": "E"},
+    "Mumbai":              {"lat": 19.0760, "lon": 72.8777, "lat_dir": "N", "lon_dir": "E"},
+    "Pune":                {"lat": 18.5204, "lon": 73.8567, "lat_dir": "N", "lon_dir": "E"},
+    "Delhi":               {"lat": 28.6139, "lon": 77.2090, "lat_dir": "N", "lon_dir": "E"},
+    "Jaipur":              {"lat": 26.9124, "lon": 75.7873, "lat_dir": "N", "lon_dir": "E"},
+    "Kolkata":             {"lat": 22.5726, "lon": 88.3639, "lat_dir": "N", "lon_dir": "E"},
+    "Varanasi":            {"lat": 25.3176, "lon": 82.9739, "lat_dir": "N", "lon_dir": "E"},
+    "Ahmedabad":           {"lat": 23.0225, "lon": 72.5714, "lat_dir": "N", "lon_dir": "E"},
+    "Thiruvananthapuram":  {"lat":  8.5241, "lon": 76.9366, "lat_dir": "N", "lon_dir": "E"},
+    "Kochi":               {"lat":  9.9312, "lon": 76.2673, "lat_dir": "N", "lon_dir": "E"},
+    "Vijayawada":          {"lat": 16.5062, "lon": 80.6480, "lat_dir": "N", "lon_dir": "E"},
+    "Colombo":             {"lat":  6.9271, "lon": 79.8612, "lat_dir": "N", "lon_dir": "E"},
+    "London":              {"lat": 51.5074, "lon":  0.1278, "lat_dir": "N", "lon_dir": "W"},
+    "New York":            {"lat": 40.7128, "lon": 74.0060, "lat_dir": "N", "lon_dir": "W"},
+    "Singapore":           {"lat":  1.3521, "lon": 103.8198,"lat_dir": "N", "lon_dir": "E"},
+    "Dubai":               {"lat": 25.2048, "lon": 55.2708, "lat_dir": "N", "lon_dir": "E"},
+}
+
+# ── Timezone presets (seconds offset from GMT) ────────────────────────────────
+TIMEZONES = {
+    "IST  — India          (+5:30)":   5 * 3600 + 30 * 60,
+    "GMT  — London         (+0:00)":   0,
+    "CET  — Paris / Berlin (+1:00)":   1 * 3600,
+    "EET  — Athens / Cairo (+2:00)":   2 * 3600,
+    "MSK  — Moscow         (+3:00)":   3 * 3600,
+    "GST  — Dubai          (+4:00)":   4 * 3600,
+    "PKT  — Karachi        (+5:00)":   5 * 3600,
+    "BST  — Dhaka          (+6:00)":   6 * 3600,
+    "ICT  — Bangkok        (+7:00)":   7 * 3600,
+    "CST  — China          (+8:00)":   8 * 3600,
+    "JST  — Japan          (+9:00)":   9 * 3600,
+    "AEST — Sydney        (+10:00)":  10 * 3600,
+    "EST  — New York       (-5:00)":  -5 * 3600,
+    "CST  — Chicago        (-6:00)":  -6 * 3600,
+    "MST  — Denver         (-7:00)":  -7 * 3600,
+    "PST  — Los Angeles    (-8:00)":  -8 * 3600,
+}
+
 # Vimsottari Dasa — lord and period (years) for each nakshatra (cycle of 9, repeated)
 DASA_LORDS = ["Ketu", "Venus", "Sun", "Moon", "Mars",
               "Rahu", "Jupiter", "Saturn", "Mercury"]
@@ -653,123 +699,347 @@ def _html_to_pdf(html: str):
         return None
 
 
+# ── Custom CSS injection ──────────────────────────────────────────────────────
+
+_CSS = """
+<style>
+/* ── Sidebar: deep cosmic dark with saffron accents ── */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #0f0500 0%, #1e0a00 60%, #0f0500 100%) !important;
+    border-right: 2px solid #b8720a !important;
+}
+section[data-testid="stSidebar"] .stMarkdown,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div {
+    color: #f5d78e !important;
+}
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: #ffd700 !important;
+}
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea {
+    background-color: #2a0e00 !important;
+    border: 1px solid #b8720a !important;
+    color: #fff8e7 !important;
+    border-radius: 6px !important;
+}
+section[data-testid="stSidebar"] .stSelectbox > div > div,
+section[data-testid="stSidebar"] .stDateInput > div > div,
+section[data-testid="stSidebar"] .stTimeInput > div > div {
+    background-color: #2a0e00 !important;
+    border: 1px solid #b8720a !important;
+    color: #fff8e7 !important;
+    border-radius: 6px !important;
+}
+section[data-testid="stSidebar"] hr {
+    border-color: #6b3800 !important;
+    margin: 0.6rem 0 !important;
+}
+/* Sidebar section dividers */
+.sb-section {
+    background: rgba(184,114,10,0.12);
+    border-left: 3px solid #b8720a;
+    border-radius: 0 6px 6px 0;
+    padding: 8px 10px 8px 12px;
+    margin: 8px 0 4px 0;
+}
+.sb-section-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #ffd700 !important;
+}
+
+/* ── Main area ── */
+.main .block-container {
+    background-color: #fffcf5;
+    padding-top: 1rem !important;
+}
+
+/* ── Page header banner ── */
+.bhagya-header {
+    background: linear-gradient(135deg, #6b0000 0%, #a85200 50%, #6b0000 100%);
+    color: #fff8e7;
+    padding: 1.2rem 2rem;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 4px 15px rgba(168,82,0,0.35);
+}
+.bhagya-header h1 {
+    font-size: 1.8rem;
+    letter-spacing: 6px;
+    margin: 0 0 0.2rem 0;
+    color: #ffd700;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+}
+.bhagya-header .subhead {
+    font-size: 0.85rem;
+    color: #f5d78e;
+    letter-spacing: 2px;
+}
+
+/* ── Birth info card ── */
+.birth-card {
+    background: linear-gradient(135deg, #fff9ee, #fff3d6);
+    border: 1px solid #e0a040;
+    border-radius: 10px;
+    padding: 1rem 1.4rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+    box-shadow: 0 2px 8px rgba(160,80,0,0.1);
+}
+.birth-item { font-size: 0.9rem; color: #3a1a00; }
+.birth-item b { color: #7a3500; }
+
+/* ── Section headings ── */
+.section-head {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #7a3500;
+    border-bottom: 2px solid #e0a040;
+    padding-bottom: 0.3rem;
+    margin: 1.2rem 0 0.7rem 0;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ── Metric cards ── */
+[data-testid="metric-container"] {
+    background: #fff9ee !important;
+    border: 1px solid #e0c070 !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    box-shadow: 0 2px 6px rgba(160,100,0,0.08) !important;
+}
+[data-testid="metric-container"] label {
+    color: #8a5000 !important;
+    font-size: 0.78rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+    color: #2a0e00 !important;
+    font-size: 1rem !important;
+}
+
+/* ── Primary button ── */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #b8720a, #7a3500) !important;
+    border: none !important;
+    color: #fff8e7 !important;
+    font-weight: 700 !important;
+    letter-spacing: 1.5px !important;
+    border-radius: 8px !important;
+    padding: 0.6rem 1rem !important;
+    box-shadow: 0 3px 10px rgba(120,50,0,0.4) !important;
+    transition: all 0.2s !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #d4860c, #a04800) !important;
+    box-shadow: 0 4px 14px rgba(120,50,0,0.55) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+    background: #fff3d6 !important;
+    border-radius: 8px !important;
+    padding: 4px !important;
+    gap: 4px !important;
+}
+.stTabs [data-baseweb="tab"] {
+    border-radius: 6px !important;
+    color: #7a3500 !important;
+    font-weight: 600 !important;
+}
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #b8720a, #7a3500) !important;
+    color: #fff8e7 !important;
+}
+
+/* ── Dataframes ── */
+.stDataFrame {
+    border: 1px solid #e0c070 !important;
+    border-radius: 8px !important;
+}
+
+/* ── Divider ── */
+hr { border-color: #e0c070 !important; }
+
+/* ── South Indian chart cells ── */
+.si-chart td {
+    border: 2px solid #7a3500 !important;
+    background: #fffcf5 !important;
+    font-family: Georgia, serif !important;
+    font-size: 12px !important;
+    color: #2a0e00 !important;
+}
+.si-chart th {
+    border: 2px solid #7a3500 !important;
+    background: #fff3d6 !important;
+    color: #7a3500 !important;
+    font-size: 14px !important;
+}
+</style>
+"""
+
+
+def _chart_html_styled(by_sign, label):
+    """South Indian chart with warm saffron styling."""
+    cell_h, cell_w = 88, 88
+    cs = (f"width:{cell_w}px;height:{cell_h}px;vertical-align:top;"
+          f"padding:5px;font-size:12px;font-family:Georgia,serif;"
+          f"color:#2a0e00;border:2px solid #7a3500;background:#fffcf5;")
+    centre_s = (f"width:{cell_w*2}px;height:{cell_h*2}px;text-align:center;"
+                f"vertical-align:middle;border:2px solid #7a3500;"
+                f"background:linear-gradient(135deg,#fff3d6,#ffe8b0);"
+                f"color:#7a3500;font-weight:bold;font-size:14px;"
+                f"font-family:Georgia,serif;letter-spacing:2px;")
+
+    def cell(sign):
+        content = "<br>".join(by_sign.get(sign, []))
+        return f'<td style="{cs}">{content}</td>'
+
+    rows = (
+        f"<tr>{cell(11)}{cell(0)}{cell(1)}{cell(2)}</tr>"
+        f"<tr>{cell(10)}<th rowspan='2' colspan='2' style='{centre_s}'>{label}</th>{cell(3)}</tr>"
+        f"<tr>{cell(9)}{cell(4)}</tr>"
+        f"<tr>{cell(8)}{cell(7)}{cell(6)}{cell(5)}</tr>"
+    )
+    tbl_s = (f"border-collapse:collapse;border:3px solid #7a3500;"
+             f"width:{cell_w*4+10}px;box-shadow:0 3px 12px rgba(120,50,0,0.2);")
+    return f'<table style="{tbl_s}">{rows}</table>'
+
+
 # ── Streamlit: Tab 1 — Horoscope ──────────────────────────────────────────────
 
 def show_horoscope_tab(result):
-    inp  = result["input"]
-    cal  = result["calendar"]
-    pd   = result["planet_degs"]
-    nav  = result["navamsa_positions"]
-    shad = result["shad"]
-    bb   = result["bhava_bala"]
-    mut  = result["mutual"]
+    import pandas as pd_lib
+
+    inp   = result["input"]
+    cal   = result["calendar"]
+    pd_   = result["planet_degs"]
+    nav   = result["navamsa_positions"]
+    shad  = result["shad"]
+    bb    = result["bhava_bala"]
+    mut   = result["mutual"]
     house = result["house_positions"]
-
-    # Header
     in_dt = inp["in_datetime"]
+
+    # ── Birth info card ──
     st.markdown(f"""
-    | | |
-    |--|--|
-    | **Name** | {inp["name"]} |
-    | **Date** | {in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year} &nbsp; ({cal["weekday"]}) |
-    | **Time** | {in_dt.hour:02d}:{in_dt.minute:02d} &nbsp; Local Standard Time |
-    | **Place** | {inp["birthplace"]} |
-    | **Lat / Long** | {inp["lat_degs"]:.4f} {inp["lat_dirn"]} &nbsp;/&nbsp; {inp["long_degs"]:.4f} {inp["long_dirn"]} |
-    | **Sunrise / Sunset** | {cal["sunrise"].strftime("%H:%M:%S")} &nbsp;/&nbsp; {cal["sunset"].strftime("%H:%M:%S")} |
-    """)
+    <div class="birth-card">
+      <div class="birth-item"><b>Name</b><br>{inp["name"]}</div>
+      <div class="birth-item"><b>Date of Birth</b><br>
+        {in_dt.day:02d} / {in_dt.month:02d} / {in_dt.year} &nbsp;({cal["weekday"]})</div>
+      <div class="birth-item"><b>Time</b><br>
+        {in_dt.hour:02d}:{in_dt.minute:02d} &nbsp;LST</div>
+      <div class="birth-item"><b>Place</b><br>{inp["birthplace"]}</div>
+      <div class="birth-item"><b>Coordinates</b><br>
+        {inp["lat_degs"]:.4f}&nbsp;{inp["lat_dirn"]} &nbsp;/&nbsp;
+        {inp["long_degs"]:.4f}&nbsp;{inp["long_dirn"]}</div>
+      <div class="birth-item"><b>Sunrise / Sunset</b><br>
+        {cal["sunrise"].strftime("%H:%M")} &nbsp;/&nbsp; {cal["sunset"].strftime("%H:%M")}</div>
+      <div class="birth-item"><b>Janma Nakshatra</b><br>
+        {cal["janma_nakshatra"]} &nbsp;Pada&nbsp;{cal["janma_pada"]}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.divider()
+    # ── Calendar ──
+    st.markdown('<div class="section-head">Panchangam</div>', unsafe_allow_html=True)
+    r1 = st.columns(4)
+    r1[0].metric("Paksham",  cal["paksham"])
+    r1[1].metric("Thithi",   cal["thithi"])
+    r1[2].metric("Yogam",    cal["yogam"])
+    r1[3].metric("Karanam",  cal["karanam"])
 
-    # Calendar data
-    st.subheader("Calendar")
-    cc = st.columns(4)
-    cc[0].metric("Paksham",    cal["paksham"])
-    cc[1].metric("Thithi",     cal["thithi"])
-    cc[2].metric("Yogam",      cal["yogam"])
-    cc[3].metric("Karanam",    cal["karanam"])
-    cc2 = st.columns(3)
-    cc2[0].metric("Tamil Date",
-                  f"{cal['tamil_day']} {cal['tamil_month']} {cal['tamil_year']}")
-    cc2[1].metric("Saka Date",
-                  f"{cal['saka_day']} {cal['saka_month']} {cal['saka_year']}")
-    cc2[2].metric("Kali Year", cal["kali_year"])
-    cc3 = st.columns(2)
-    cc3[0].metric("Janma Nakshatra",
-                  f"{cal['janma_nakshatra']} Pada-{cal['janma_pada']}")
-    cc3[1].metric(f"Balance of {cal['dasa_lord']} Dasa",
-                  f"Y:{cal['dasa_y']}  M:{cal['dasa_m']}  D:{cal['dasa_d']}")
+    r2 = st.columns(4)
+    r2[0].metric("Tamil Date",
+                 f"{cal['tamil_day']} {cal['tamil_month']}\n{cal['tamil_year']}")
+    r2[1].metric("Saka Date",
+                 f"{cal['saka_day']} {cal['saka_month']}\n{cal['saka_year']}")
+    r2[2].metric("Kali Year", str(cal["kali_year"]))
+    r2[3].metric(f"{cal['dasa_lord']} Dasa balance",
+                 f"Y {cal['dasa_y']}  M {cal['dasa_m']}  D {cal['dasa_d']}")
 
-    st.divider()
-
-    # Charts
-    st.subheader("Charts")
-    rasi_by_sign  = _planets_by_sign(pd)
+    # ── Charts ──
+    st.markdown('<div class="section-head">Charts</div>', unsafe_allow_html=True)
+    rasi_by_sign  = _planets_by_sign(pd_)
     nav_by_sign   = _planets_by_navamsa(nav)
     bhava_by_sign = _planets_by_bhava(result["bhava_positions"])
 
     ch1, ch2, ch3 = st.columns(3)
     with ch1:
-        st.markdown("**RASI**", unsafe_allow_html=True)
-        components.html(
-            _make_south_indian_chart_html(rasi_by_sign, "RASI"),
-            height=380)
+        st.markdown("<p style='text-align:center;font-weight:700;"
+                    "color:#7a3500;letter-spacing:2px;'>RASI</p>",
+                    unsafe_allow_html=True)
+        components.html(_chart_html_styled(rasi_by_sign, "RASI"), height=380)
     with ch2:
-        st.markdown("**NAVAMSA**", unsafe_allow_html=True)
-        components.html(
-            _make_south_indian_chart_html(nav_by_sign, "NAVAMSA"),
-            height=380)
+        st.markdown("<p style='text-align:center;font-weight:700;"
+                    "color:#7a3500;letter-spacing:2px;'>NAVAMSA</p>",
+                    unsafe_allow_html=True)
+        components.html(_chart_html_styled(nav_by_sign, "NAVAMSA"), height=380)
     with ch3:
-        st.markdown("**BHAVA**", unsafe_allow_html=True)
-        components.html(
-            _make_south_indian_chart_html(bhava_by_sign, "BHAVA"),
-            height=380)
+        st.markdown("<p style='text-align:center;font-weight:700;"
+                    "color:#7a3500;letter-spacing:2px;'>BHAVA</p>",
+                    unsafe_allow_html=True)
+        components.html(_chart_html_styled(bhava_by_sign, "BHAVA"), height=380)
 
-    st.divider()
-
-    # Nirayana Longitudes
-    st.subheader("Nirayana Longitudes")
+    # ── Nirayana Longitudes ──
+    st.markdown('<div class="section-head">Nirayana Longitudes</div>',
+                unsafe_allow_html=True)
     rows = []
     for i, nm in enumerate(GRAHA_NAMES):
-        degs = pd[i]
+        degs = pd_[i]
         sign = int(degs // 30)
         d    = int(degs)
         m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
-        nav_sign  = int(nav[i])
         rows.append({
-            "Planet":    nm,
-            "Long":      f"{d}\u00b0{m:02d}\u2032",
+            "Graha":     nm,
+            "Long":      f"{d}\u00b0 {m:02d}\u2032",
             "Rasi":      RASI_NAMES[sign],
             "Nakshatra": NAKSHATRA[nak],
             "Pada":      pada,
-            "Navamsa":   RASI_NAMES[nav_sign],
+            "Navamsa":   RASI_NAMES[int(nav[i])],
         })
-    import pandas as pd_lib
     st.dataframe(pd_lib.DataFrame(rows), hide_index=True, use_container_width=True)
 
-    # Bhava Cusps
-    st.subheader("Bhava Cusps")
+    # ── Bhava Cusps ──
+    st.markdown('<div class="section-head">Bhava Cusps</div>', unsafe_allow_html=True)
     house_rows = []
     for i in range(12):
         degs = house[i]
         sign = int(degs // 30)
         d    = int(degs)
         m    = int((degs - d) * 60)
-        house_rows.append({"House": i+1, "Long": f"{d}\u00b0{m:02d}\u2032", "Rasi": RASI_NAMES[sign]})
+        house_rows.append({
+            "Bhava": i + 1,
+            "Long":  f"{d}\u00b0 {m:02d}\u2032",
+            "Rasi":  RASI_NAMES[sign],
+        })
     st.dataframe(pd_lib.DataFrame(house_rows), hide_index=True, use_container_width=True)
 
-    st.divider()
-
-    # Shadbala
-    st.subheader("Shadbala")
+    # ── Shadbala ──
+    st.markdown('<div class="section-head">Shadbala — Planetary Strength</div>',
+                unsafe_allow_html=True)
     shad_components = [
         ("Sthana Bala",   "sthana"),
         ("Kala Bala",     "kala"),
         ("Dig Bala",      "dig"),
         ("Naisargika",    "naisa"),
         ("Chesta Bala",   "chesta"),
-        ("Drik Bala (+)", "ben_drig"),
-        ("Drik Bala (-)", "mal_drig"),
+        ("Drik (+)",      "ben_drig"),
+        ("Drik (-)",      "mal_drig"),
         ("TOTAL",         "total"),
         ("Min Required",  "min_required"),
         ("Relative",      "relative"),
@@ -778,15 +1048,12 @@ def show_horoscope_tab(result):
     ]
     shad_data = {"Bala": [lbl for lbl, _ in shad_components]}
     for j, planet in enumerate(SHAD_LABELS):
-        shad_data[planet] = [
-            round(shad[key][j], 2) for _, key in shad_components
-        ]
+        shad_data[planet] = [round(shad[key][j], 2) for _, key in shad_components]
     st.dataframe(pd_lib.DataFrame(shad_data), hide_index=True, use_container_width=True)
 
-    st.divider()
-
-    # Bhava Bala
-    st.subheader("Bhava Bala")
+    # ── Bhava Bala ──
+    st.markdown('<div class="section-head">Bhava Bala — House Strength</div>',
+                unsafe_allow_html=True)
     bb_components = [
         ("Swami Bala", "swami"),
         ("Dig Bala",   "dig"),
@@ -801,19 +1068,18 @@ def show_horoscope_tab(result):
         bb_data[f"H{h+1}"] = [round(bb[key][h], 2) for _, key in bb_components]
     st.dataframe(pd_lib.DataFrame(bb_data), hide_index=True, use_container_width=True)
 
-    st.divider()
-
-    # Mutual Disposition
-    st.subheader("Mutual Disposition")
+    # ── Mutual Disposition ──
+    st.markdown('<div class="section-head">Mutual Disposition</div>',
+                unsafe_allow_html=True)
     pnames = mut["planet_names"]
     mrasi  = pd_lib.DataFrame(mut["rasi"],    index=pnames, columns=pnames)
     mnav   = pd_lib.DataFrame(mut["navamsa"], index=pnames, columns=pnames)
     mrc, mnc = st.columns(2)
     with mrc:
-        st.markdown("**Rasi**")
+        st.caption("Rasi")
         st.dataframe(mrasi, use_container_width=True)
     with mnc:
-        st.markdown("**Navamsa**")
+        st.caption("Navamsa")
         st.dataframe(mnav, use_container_width=True)
 
 
@@ -822,14 +1088,14 @@ def show_horoscope_tab(result):
 def show_html_tab(result):
     html = generate_html_report(result)
 
-    # Download buttons
-    col1, col2 = st.columns([1, 1])
+    col1, col2, col3 = st.columns([1, 1, 3])
     with col1:
         st.download_button(
             label="⬇ Download HTML",
             data=html.encode("utf-8"),
             file_name=f"{result['input']['name']}_horoscope.html",
             mime="text/html",
+            use_container_width=True,
         )
     with col2:
         pdf_bytes = _html_to_pdf(html)
@@ -839,15 +1105,22 @@ def show_html_tab(result):
                 data=pdf_bytes,
                 file_name=f"{result['input']['name']}_horoscope.pdf",
                 mime="application/pdf",
+                use_container_width=True,
             )
         else:
-            st.info("Install `weasyprint` for direct PDF download: `pip install weasyprint`")
+            st.caption("`pip install weasyprint` for PDF download")
 
-    st.caption("Use the Print / Save as PDF button inside the report, "
-               "or the Download HTML button above and open in your browser.")
+    components.html(html, height=1150, scrolling=True)
 
-    # Embed the full HTML
-    components.html(html, height=1100, scrolling=True)
+
+# ── Sidebar helpers ───────────────────────────────────────────────────────────
+
+def _sb_section(icon, title):
+    st.markdown(
+        f'<div class="sb-section"><span class="sb-section-title">'
+        f'{icon}&nbsp;&nbsp;{title}</span></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ── Main Streamlit App ────────────────────────────────────────────────────────
@@ -857,72 +1130,136 @@ def main():
         page_title="Bhagyagraha – Hindu Horoscope",
         page_icon="🪐",
         layout="wide",
+        initial_sidebar_state="expanded",
     )
 
-    st.title("🪐 Bhagyagraha — Hindu Horoscope Calculator")
+    # Inject CSS
+    st.markdown(_CSS, unsafe_allow_html=True)
 
-    # ── Sidebar: Birth Data Form ──
+    # ── Page header ──
+    st.markdown("""
+    <div class="bhagya-header">
+      <h1>&#9654;&nbsp; B H A G Y A G R A H A &nbsp;&#9664;</h1>
+      <div class="subhead">Hindu Horoscope Calculator</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ────────────────────── Sidebar ──────────────────────
     with st.sidebar:
-        st.header("Birth Data")
+        st.markdown("""
+        <div style="text-align:center;padding:1rem 0 0.5rem;">
+          <div style="font-size:2.2rem;">🪐</div>
+          <div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;
+                      color:#ffd700;">BHAGYAGRAHA</div>
+          <div style="font-size:0.72rem;color:#c8a060;letter-spacing:1px;">
+            BIRTH DATA</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        name       = st.text_input("Name",          value="Arunram")
-        birthplace = st.text_input("Place of Birth", value="Salem")
+        st.divider()
 
-        st.markdown("**Date of Birth**")
-        dc1, dc2, dc3 = st.columns(3)
-        day   = dc1.number_input("Day",   1, 31,   value=28, label_visibility="collapsed")
-        month = dc2.number_input("Month", 1, 12,   value=5,  label_visibility="collapsed")
-        year  = dc3.number_input("Year",  1800, 2100, value=1983, label_visibility="collapsed")
-        dc1.caption("Day"); dc2.caption("Month"); dc3.caption("Year")
+        # ── 1. Personal ──
+        _sb_section("👤", "Personal")
+        name       = st.text_input("Full Name",      value="Arunram",
+                                   placeholder="Enter full name")
+        birthplace = st.text_input("Place of Birth", value="Salem",
+                                   placeholder="City, State")
 
-        st.markdown("**Time of Birth (Local)**")
-        tc1, tc2 = st.columns(2)
-        hour   = tc1.number_input("Hour",   0, 23, value=7,  label_visibility="collapsed")
-        minute = tc2.number_input("Minute", 0, 59, value=11, label_visibility="collapsed")
-        tc1.caption("Hour"); tc2.caption("Minute")
+        st.divider()
 
-        st.markdown("**Latitude**")
-        la1, la2, la3 = st.columns([2, 2, 1])
-        lat_deg = la1.number_input("Lat°", 0, 90,  value=11,  label_visibility="collapsed")
-        lat_min = la2.number_input("Lat'", 0, 59,  value=39,  label_visibility="collapsed")
-        lat_dir = la3.radio("",  ["N", "S"], index=0, label_visibility="collapsed")
-        la1.caption("Deg"); la2.caption("Min")
+        # ── 2. Date & Time ──
+        _sb_section("📅", "Date & Time of Birth")
+        birth_date = st.date_input(
+            "Date of Birth",
+            value=dt.date(1983, 5, 28),
+            min_value=dt.date(1800, 1, 1),
+            max_value=dt.date(2100, 12, 31),
+            format="DD/MM/YYYY",
+        )
+        birth_time = st.time_input(
+            "Time of Birth (Local Standard Time)",
+            value=dt.time(7, 11),
+            step=60,
+        )
 
-        st.markdown("**Longitude**")
-        lo1, lo2, lo3 = st.columns([2, 2, 1])
-        lon_deg = lo1.number_input("Lon°", 0, 180, value=78,  label_visibility="collapsed")
-        lon_min = lo2.number_input("Lon'", 0, 59,  value=12,  label_visibility="collapsed")
-        lon_dir = lo3.radio("",  ["E", "W"], index=0, label_visibility="collapsed")
-        lo1.caption("Deg"); lo2.caption("Min")
+        st.divider()
 
-        st.markdown("**Timezone offset from GMT**")
-        tz1, tz2 = st.columns(2)
-        tz_hr  = tz1.number_input("TZ Hr",  -12, 14, value=5,  label_visibility="collapsed")
-        tz_min = tz2.number_input("TZ Min",  0,  59,  value=30, label_visibility="collapsed")
-        tz1.caption("Hours"); tz2.caption("Minutes")
-        tz_dir = st.radio("TZ Direction", ["East (+)", "West (-)"], index=0)
+        # ── 3. Timezone ──
+        _sb_section("🕐", "Timezone")
+        tz_choice = st.selectbox(
+            "Select timezone",
+            options=list(TIMEZONES.keys()),
+            index=0,
+            label_visibility="collapsed",
+        )
+        diff_sec = TIMEZONES[tz_choice]
 
-        calculate = st.button("🔭 Calculate Horoscope", use_container_width=True, type="primary")
+        st.divider()
+
+        # ── 4. Location ──
+        _sb_section("📍", "Location")
+        city_choice = st.selectbox(
+            "Preset city",
+            options=list(CITIES.keys()),
+            index=0,
+            label_visibility="collapsed",
+        )
+
+        city_data = CITIES.get(city_choice)
+        if city_data:
+            def_lat     = city_data["lat"]
+            def_lon     = city_data["lon"]
+            def_lat_dir = 0 if city_data["lat_dir"] == "N" else 1
+            def_lon_dir = 0 if city_data["lon_dir"] == "E" else 1
+        else:
+            def_lat, def_lon = 11.6643, 78.1460
+            def_lat_dir, def_lon_dir = 0, 0
+
+        # Use city_choice as part of the key so widgets reset when city changes
+        ck = city_choice  # cache key suffix
+
+        cl, cd = st.columns([3, 1])
+        lat_val = cl.number_input(
+            "Latitude", min_value=0.0, max_value=90.0,
+            value=def_lat, step=0.0001, format="%.4f",
+            key=f"lat_{ck}",
+        )
+        lat_dir = cd.radio("N/S", ["N", "S"], index=def_lat_dir,
+                           key=f"latd_{ck}")
+
+        ol, od = st.columns([3, 1])
+        lon_val = ol.number_input(
+            "Longitude", min_value=0.0, max_value=180.0,
+            value=def_lon, step=0.0001, format="%.4f",
+            key=f"lon_{ck}",
+        )
+        lon_dir = od.radio("E/W", ["E", "W"], index=def_lon_dir,
+                           key=f"lond_{ck}")
+
+        st.divider()
+
+        calculate = st.button(
+            "🔭  Calculate Horoscope",
+            use_container_width=True,
+            type="primary",
+        )
 
     # ── Build input_params ──
-    diff_sec = (tz_hr * 3600 + tz_min * 60)
-    if "West" in tz_dir:
-        diff_sec = -diff_sec
-
     input_params = {
         "name":                 name,
         "birthplace":           birthplace,
-        "in_datetime":          dt.datetime(int(year), int(month), int(day),
-                                            int(hour), int(minute)),
+        "in_datetime":          dt.datetime(birth_date.year, birth_date.month,
+                                            birth_date.day,
+                                            birth_time.hour, birth_time.minute),
         "diff_from_gst_in_sec": int(diff_sec),
-        "lat_degs":             lat_deg + lat_min / 60.0,
+        "lat_degs":             float(lat_val),
         "lat_dirn":             lat_dir,
-        "long_degs":            lon_deg + lon_min / 60.0,
+        "long_degs":            float(lon_val),
         "long_dirn":            lon_dir,
     }
 
-    # ── Compute (on button press or first load with defaults) ──
-    if calculate or "result" not in st.session_state:
+    # ── Compute ──
+    if calculate:
         with st.spinner("Computing horoscope…"):
             try:
                 st.session_state.result = compute(input_params)
@@ -930,16 +1267,37 @@ def main():
                 st.error(f"Calculation error: {e}")
                 st.stop()
 
+    if "result" not in st.session_state:
+        st.markdown("""
+        <div style="text-align:center;padding:4rem 2rem;color:#7a3500;">
+          <div style="font-size:4rem;margin-bottom:1rem;">🪐</div>
+          <div style="font-size:1.3rem;font-weight:700;letter-spacing:2px;
+                      margin-bottom:0.5rem;">Welcome to Bhagyagraha</div>
+          <div style="font-size:0.95rem;color:#a06030;">
+            Enter birth details in the sidebar and click
+            <b>Calculate Horoscope</b> to begin.
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.stop()
+
     result = st.session_state.result
 
     # ── Tabs ──
-    tab1, tab2 = st.tabs(["📊 Horoscope", "🌐 HTML Report"])
-
+    tab1, tab2 = st.tabs(["📊  Horoscope", "🌐  HTML Report"])
     with tab1:
         show_horoscope_tab(result)
-
     with tab2:
         show_html_tab(result)
+
+    # ── Footer ──
+    st.markdown("""
+    <hr style="margin-top:2rem;border-color:#e0c070;">
+    <div style="text-align:center;font-size:0.75rem;color:#b08040;padding:0.5rem 0 1rem;">
+      Bhagyagraha &nbsp;·&nbsp; Hindu Horoscope Calculator &nbsp;·&nbsp;
+      Calculations based on Lahiri Ayanamsa (sidereal)
+    </div>
+    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

@@ -982,17 +982,17 @@ def show_horoscope_tab(result):
         st.markdown("<p style='text-align:center;font-weight:700;"
                     "color:#7a3500;letter-spacing:2px;'>RASI</p>",
                     unsafe_allow_html=True)
-        components.html(_chart_html_styled(rasi_by_sign, "RASI"), height=380)
+        components.html(_chart_html_styled(rasi_by_sign, "RASI"), height=430)
     with ch2:
         st.markdown("<p style='text-align:center;font-weight:700;"
                     "color:#7a3500;letter-spacing:2px;'>NAVAMSA</p>",
                     unsafe_allow_html=True)
-        components.html(_chart_html_styled(nav_by_sign, "NAVAMSA"), height=380)
+        components.html(_chart_html_styled(nav_by_sign, "NAVAMSA"), height=430)
     with ch3:
         st.markdown("<p style='text-align:center;font-weight:700;"
                     "color:#7a3500;letter-spacing:2px;'>BHAVA</p>",
                     unsafe_allow_html=True)
-        components.html(_chart_html_styled(bhava_by_sign, "BHAVA"), height=380)
+        components.html(_chart_html_styled(bhava_by_sign, "BHAVA"), height=430)
 
     # ── Nirayana Longitudes ──
     st.markdown('<div class="section-head">Nirayana Longitudes</div>',
@@ -1107,8 +1107,6 @@ def show_html_tab(result):
                 mime="application/pdf",
                 use_container_width=True,
             )
-        else:
-            st.caption("`pip install weasyprint` for PDF download")
 
     components.html(html, height=1150, scrolling=True)
 

@@ -200,7 +200,7 @@ def saptha_vargaja_bala(p_signs, p_degs_in_sign, p_mins_in_sign, navamsa_signs):
         total += marks[index]
 
         # — Dwadasamsam (1/12th division) —
-        k = int((d + m / 60.0) * 2.0 / 5.0) + 1
+        k = int((int(d) + m / 60.0) * 2.0 / 5.0) + 1
         dwa_sign = (s + k - 1) % 12
         if own[i][0] == dwa_sign or own[i][3] == dwa_sign:
             index = 1
@@ -257,10 +257,10 @@ def oja_bala(p_signs, navamsa_signs):
         tmp = 0.0
         if gender[i] == 0:   # masculine → odd rasi and odd navamsa are strong
             tmp  = 0.25 if (p_signs[i + 1] + 1) % 2 == 1 else 0.0
-            tmp += 0.25 if navamsa_signs[i + 1] % 2 == 1 else 0.0
+            tmp += 0.25 if navamsa_signs[i + 1] % 2 == 0 else 0.0
         else:                 # feminine → even rasi and even navamsa are strong
             tmp  = 0.25 if (p_signs[i + 1] + 1) % 2 == 0 else 0.0
-            tmp += 0.25 if navamsa_signs[i + 1] % 2 == 0 else 0.0
+            tmp += 0.25 if navamsa_signs[i + 1] % 2 == 1 else 0.0
         result.append(tmp)
     return result
 
@@ -455,7 +455,7 @@ def ayana_bala(p_degs, prec_degs):
     ]
     # strong: 0=always northern, 1=northern in Uttarayana (spos<180 is bad),
     #         2=northern is good
-    strong = [0, 1, 0, 2, 0, 0, 1]
+    strong = [1, 0, 2, 0, 0, 1, 1]
 
     result = []
     for i in range(7):
@@ -528,7 +528,7 @@ def chesta_bala(ayana_sun, paksha_moon, p_degs, helio_degs):
     result = [ayana_sun, paksha_moon, 0.0, 0.0, 0.0, 0.0, 0.0]
     # helio_degs: list of 5 heliocentric positions [Mars, Mercury, Jupiter, Venus, Saturn]
     for i in range(5):
-        geo  = p_degs[i + 2]
+        geo  = p_degs[i + 1]
         helio = helio_degs[i]
         diff  = geo - helio if geo > helio else 360.0 + geo - helio
         if diff > 180.0:

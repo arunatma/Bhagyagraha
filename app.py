@@ -192,6 +192,46 @@ def _dasa_balance(moon_degs):
     return lord, y, m, d
 
 
+def _full_dasa_table(moon_degs, birth_dt):
+    """Build full 120-year Vimsottari Dasa/Bukti table starting from birth."""
+    nak_width = 360.0 / 27
+    nak_idx   = min(int(moon_degs / nak_width), 26)
+    nak_start = nak_idx * nak_width
+    frac_remaining = 1.0 - (moon_degs - nak_start) / nak_width
+    lord_idx = nak_idx % 9
+    current  = birth_dt + dt.timedelta(
+        days=frac_remaining * DASA_YEARS[lord_idx] * 365.25)
+    table = []
+    for d in range(9):
+        di = (lord_idx + d) % 9
+        buktis = []
+        for b in range(9):
+            bi = (di + b) % 9
+            current = current + dt.timedelta(
+                days=DASA_YEARS[di] * DASA_YEARS[bi] / 120.0 * 365.25)
+            buktis.append((DASA_LORDS[bi], current.strftime("%Y-%m-%d")))
+        table.append({"dasa": DASA_LORDS[di], "buktis": buktis})
+    return table
+
+
+def _vel_str(v):
+    """Format velocity (degrees/day) as 'D-MM-SS'."""
+    if v is None:
+        return "- - -"
+    d = int(v)
+    m = int((v - d) * 60)
+    s = int(((v - d) * 60 - m) * 60)
+    return f"{d}-{m:02d}-{s:02d}"
+
+
+def _ramc_hms(r):
+    """RAMC degrees → sidereal time string H:MM:SS."""
+    h = int(r / 15)
+    m = int((r / 15 - h) * 60)
+    s = int(((r / 15 - h) * 60 - m) * 60)
+    return f"{h}H-{m:02d}M-{s:02d}S"
+
+
 def _dt_to_hrs(d):
     return d.hour + d.minute / 60.0 + d.second / 3600.0
 
@@ -224,6 +264,30 @@ def compute(input_params):
             planet_degs.append(moon_params["ketu"])
         else:
             planet_degs.append(seven[nm]["true_long"])
+
+    # ── Velocity, latitude, retrograde ────────────────────────────────────────
+    planet_velocity   = [None] * 12
+    planet_latitude   = [None] * 12
+    planet_retrograde = [False] * 12
+
+    planet_velocity[1]   = abs(sun_params.get("hvel", 1.0))   # Sun helio vel
+    planet_latitude[1]   = 0.0
+    planet_velocity[2]   = 13.18                               # Moon ~avg deg/day
+    planet_latitude[2]   = 0.0
+
+    for _idx, _nm in zip(
+        [3, 4, 5, 6, 7, 8, 9],
+        ["MARS", "MERCURY", "JUPITER", "VENUS", "SATURN", "URANUS", "NEPTUNE"]
+    ):
+        _gvel = seven[_nm].get("gvel", 0.0)
+        planet_velocity[_idx]   = abs(_gvel)
+        planet_latitude[_idx]   = seven[_nm].get("lat", 0.0)
+        planet_retrograde[_idx] = (_gvel < 0)
+
+    planet_retrograde[10] = True   # Rahu always retrograde
+    planet_retrograde[11] = True   # Ketu always retrograde
+
+    ashta = sb.compute_ashtavarga(planet_degs)
 
     prec_degs   = sun_params["prec"]
     ramc_degs   = lagn_params["ramc"]
@@ -303,14 +367,20 @@ def compute(input_params):
     dasa_lord, dasa_y, dasa_m, dasa_d = _dasa_balance(moon_degs)
 
     return {
-        "input":             input_params,
-        "planet_degs":       planet_degs,
-        "navamsa_positions": navamsa_positions,
-        "rasi_positions":    rasi_positions,
-        "house_positions":   house_positions,
-        "bhava_positions":   bhava_positions,
-        "sun_params":        sun_params,
-        "moon_params":       moon_params,
+        "input":              input_params,
+        "planet_degs":        planet_degs,
+        "navamsa_positions":  navamsa_positions,
+        "rasi_positions":     rasi_positions,
+        "house_positions":    house_positions,
+        "bhava_positions":    bhava_positions,
+        "sun_params":         sun_params,
+        "moon_params":        moon_params,
+        "planet_velocity":    planet_velocity,
+        "planet_latitude":    planet_latitude,
+        "planet_retrograde":  planet_retrograde,
+        "sidereal_time":      ramc_degs,
+        "ayanamsa":           prec_degs,
+        "ashtavarga":         ashta,
         "calendar": {
             "paksham":         f"{paksha} Paksham",
             "thithi":          THITHI[thithi_idx],
@@ -332,6 +402,7 @@ def compute(input_params):
             "dasa_y":          dasa_y,
             "dasa_m":          dasa_m,
             "dasa_d":          dasa_d,
+            "dasa_table":      _full_dasa_table(moon_degs, input_params["in_datetime"]),
         },
         "shad":       shad,
         "bhava_bala": bhava_bala,
@@ -444,6 +515,39 @@ def _planets_by_bhava(bhava_positions):
     return dict(by_sign)
 
 
+def _graha_label(i, planet_retrograde):
+    """Return planet display name; append (R) if retrograde."""
+    label = GRAHA_DISPLAY[i]
+    if planet_retrograde and planet_retrograde[i]:
+        label += "(R)"
+    return label
+
+
+def _planets_by_sign_r(planet_degs, planet_retrograde):
+    """Like _planets_by_sign but includes (R) for retrograde planets."""
+    by_sign = defaultdict(list)
+    for i, degs in enumerate(planet_degs):
+        sign = int(degs // 30)
+        by_sign[sign].append(_graha_label(i, planet_retrograde))
+    return dict(by_sign)
+
+
+def _planets_by_navamsa_r(navamsa_positions, planet_retrograde):
+    """Like _planets_by_navamsa but includes (R) for retrograde planets."""
+    by_sign = defaultdict(list)
+    for i, sign in enumerate(navamsa_positions):
+        by_sign[int(sign)].append(_graha_label(i, planet_retrograde))
+    return dict(by_sign)
+
+
+def _planets_by_bhava_r(bhava_positions, planet_retrograde):
+    """Like _planets_by_bhava but includes (R) for retrograde planets."""
+    by_sign = defaultdict(list)
+    for i, sign in enumerate(bhava_positions):
+        by_sign[int(sign)].append(_graha_label(i, planet_retrograde))
+    return dict(by_sign)
+
+
 # ── HTML Report (Tab 2) ────────────────────────────────────────────────────────
 
 def generate_html_report(result):
@@ -471,9 +575,10 @@ def generate_html_report(result):
     sunset  = cal["sunset"]
 
     # Chart data
-    rasi_by_sign  = _planets_by_sign(pd)
-    nav_by_sign   = _planets_by_navamsa(nav)
-    bhava_by_sign = _planets_by_bhava(result["bhava_positions"])
+    retro = result.get("planet_retrograde", [False] * 12)
+    rasi_by_sign  = _planets_by_sign_r(pd, retro)
+    nav_by_sign   = _planets_by_navamsa_r(nav, retro)
+    bhava_by_sign = _planets_by_bhava_r(result["bhava_positions"], retro)
 
     rasi_chart  = _make_south_indian_chart_html(rasi_by_sign,  "RASI")
     nav_chart   = _make_south_indian_chart_html(nav_by_sign,   "NAVAMSA")
@@ -486,8 +591,9 @@ def generate_html_report(result):
         d    = int(degs)
         m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
+        retro_mark = "<b style='color:#c00'>(R)</b>" if retro[i] else ""
         long_rows += (
-            f"<tr><td><b>{nm}</b></td>"
+            f"<tr><td><b>{nm}</b>{retro_mark}</td>"
             f"<td align='right'>{d}&deg;</td>"
             f"<td align='right'>{m}&prime;</td>"
             f"<td>{NAKSHATRA[nak]}</td>"
@@ -688,15 +794,589 @@ def generate_html_report(result):
     return html
 
 
-# ── PDF via weasyprint (optional) ─────────────────────────────────────────────
+# ── PDF generation via ReportLab ──────────────────────────────────────────────
 
-def _html_to_pdf(html: str):
-    """Try to convert HTML to PDF bytes via weasyprint. Returns None if unavailable."""
+def _pdf_si_chart(by_sign, label, cell_w=50, cell_h=36):
+    """Build a 4×4 South Indian chart as a ReportLab Table."""
+    from reportlab.platypus import Table, TableStyle
+    from reportlab.lib import colors
+
+    def cell(s):
+        return "\n".join(by_sign.get(s, []))
+
+    data = [
+        [cell(11), cell(0),  cell(1),  cell(2)],
+        [cell(10), label,    "",        cell(3)],
+        [cell(9),  "",       "",        cell(4)],
+        [cell(8),  cell(7),  cell(6),   cell(5)],
+    ]
+    t = Table(data, colWidths=[cell_w] * 4, rowHeights=[cell_h] * 4)
+    t.setStyle(TableStyle([
+        ("GRID",     (0, 0), (-1, -1), 0.5, colors.black),
+        ("SPAN",     (1, 1), (2, 2)),
+        ("ALIGN",    (1, 1), (2, 2), "CENTER"),
+        ("VALIGN",   (1, 1), (2, 2), "MIDDLE"),
+        ("FONTNAME", (1, 1), (2, 2), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("LEADING",  (0, 0), (-1, -1), 8),
+        ("VALIGN",   (0, 0), (-1, -1), "TOP"),
+    ]))
+    return t
+
+
+def _pdf_ashta_chart(vals, label, cell_w=42, cell_h=28):
+    """Small 4×4 chart showing integer Ashtavarga values per sign."""
+    from reportlab.platypus import Table, TableStyle
+    from reportlab.lib import colors
+
+    data = [
+        [str(vals[11]), str(vals[0]),  str(vals[1]),  str(vals[2])],
+        [str(vals[10]), label,         "",             str(vals[3])],
+        [str(vals[9]),  "",            "",             str(vals[4])],
+        [str(vals[8]),  str(vals[7]),  str(vals[6]),   str(vals[5])],
+    ]
+    t = Table(data, colWidths=[cell_w] * 4, rowHeights=[cell_h] * 4)
+    t.setStyle(TableStyle([
+        ("GRID",     (0, 0), (-1, -1), 0.5, colors.black),
+        ("SPAN",     (1, 1), (2, 2)),
+        ("ALIGN",    (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",   (0, 0), (-1, -1), "MIDDLE"),
+        ("FONTNAME", (1, 1), (2, 2), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+    ]))
+    return t
+
+
+def _pdf_section_title(text, styles):
+    from reportlab.platypus import Paragraph
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
+    style = ParagraphStyle("sect", parent=styles["Heading2"],
+                           textColor=colors.darkred, spaceAfter=3)
+    return Paragraph(text, style)
+
+
+def _pdf_p1(story, result, styles, mm):
+    """Page 1: Birth data, Panchangam, Astronomical."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    inp   = result["input"]
+    cal   = result["calendar"]
+    in_dt = inp["in_datetime"]
+    lat_d = int(inp["lat_degs"])
+    lat_m = int((inp["lat_degs"] - lat_d) * 60)
+    lon_d = int(inp["long_degs"])
+    lon_m = int((inp["long_degs"] - lon_d) * 60)
+
+    H1 = styles["Heading1"]
+    N  = styles["Normal"]
+
+    story.append(Paragraph("B H A G Y A G R A H A", H1))
+    story.append(Spacer(1, 4 * mm))
+
+    ts = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 9),
+        ("FONTNAME",  (0, 0), (0, -1), "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ])
+
+    birth_data = [
+        ["Name",           inp["name"]],
+        ["Date of Birth",  f"{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year}  ({cal['weekday']})"],
+        ["Time of Birth",  f"{in_dt.hour:02d}H-{in_dt.minute:02d}M  (Local Standard Time)"],
+        ["Place of Birth", inp["birthplace"]],
+        ["Latitude",       f"{lat_d}-{lat_m:02d} ({inp['lat_dirn']})"],
+        ["Longitude",      f"{lon_d}-{lon_m:02d} ({inp['long_dirn']})"],
+        ["Sun Rise",       cal["sunrise"].strftime("%H:%M")],
+        ["Sun Set",        cal["sunset"].strftime("%H:%M")],
+    ]
+    t = Table(birth_data, colWidths=[55 * mm, 120 * mm])
+    t.setStyle(ts)
+    story.append(t)
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(_pdf_section_title("Panchangam", styles))
+    pan_data = [
+        ["Paksham",    cal["paksham"],  "Thithi",   cal["thithi"]],
+        ["Yogam",      cal["yogam"],    "Karanam",  cal["karanam"]],
+        ["Tamil Date", f"{cal['tamil_day']} {cal['tamil_month']} {cal['tamil_year']}",
+         "Saka Date",  f"{cal['saka_day']} {cal['saka_month']} {cal['saka_year']}"],
+        ["Kali Year",  str(cal["kali_year"]),
+         "Weekday",    cal["weekday"]],
+        ["Nakshatra",  f"{cal['janma_nakshatra']} Pada-{cal['janma_pada']}",
+         "Dasa Balance",
+         f"{cal['dasa_lord']}  Y:{cal['dasa_y']} M:{cal['dasa_m']} D:{cal['dasa_d']}"],
+    ]
+    ts2 = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 9),
+        ("FONTNAME",  (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME",  (2, 0), (2, -1), "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+    ])
+    t2 = Table(pan_data, colWidths=[36 * mm, 56 * mm, 36 * mm, 56 * mm])
+    t2.setStyle(ts2)
+    story.append(t2)
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(_pdf_section_title("Astronomical Data", styles))
+    ast_data = [
+        ["Sidereal Time (RAMC)", _ramc_hms(result.get("sidereal_time", 0.0))],
+        ["Ayanamsa",             f"{result.get('ayanamsa', 0.0):.4f}\u00b0"],
+    ]
+    t3 = Table(ast_data, colWidths=[70 * mm, 105 * mm])
+    t3.setStyle(TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 9),
+        ("FONTNAME",  (0, 0), (0, -1), "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 4),
+    ]))
+    story.append(t3)
+
+
+def _pdf_p2(story, result, styles, mm):
+    """Page 2: Nirayana Longitudes + RASI + NAVAMSA + Dasa balance."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    pd_   = result["planet_degs"]
+    nav   = result["navamsa_positions"]
+    retro = result.get("planet_retrograde", [False] * 12)
+    cal   = result["calendar"]
+
+    story.append(_pdf_section_title("Nirayana Longitudes", styles))
+
+    long_data = [["Graha", "Longitude", "Rasi", "Nakshatra", "Pada", "Navamsa"]]
+    for i, nm in enumerate(GRAHA_NAMES):
+        degs = pd_[i]
+        sign = int(degs // 30)
+        d    = int(degs)
+        m    = int((degs - d) * 60)
+        nak, pada = _nakshatra_pada(degs)
+        r_mark = "(R)" if retro[i] else ""
+        long_data.append([
+            nm + r_mark,
+            f"{d}\u00b0-{m:02d}\u2032",
+            RASI_NAMES[sign],
+            NAKSHATRA[nak],
+            str(pada),
+            RASI_NAMES[int(nav[i])],
+        ])
+    ts = TableStyle([
+        ("FONTSIZE",    (0, 0), (-1, -1), 8),
+        ("FONTNAME",    (0, 0), (-1,  0), "Helvetica-Bold"),
+        ("FONTNAME",    (0, 1), (0,  -1), "Helvetica-Bold"),
+        ("GRID",        (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("LEFTPADDING",  (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("BACKGROUND",  (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
+    ])
+    t = Table(long_data, colWidths=[22*mm, 22*mm, 28*mm, 36*mm, 14*mm, 28*mm])
+    t.setStyle(ts)
+    story.append(t)
+    story.append(Spacer(1, 6 * mm))
+
+    # Charts side by side — use raw ReportLab points (NOT mm) for cell_w/cell_h
+    # _pdf_si_chart colWidths=[cell_w]*4, so chart width = 4*cell_w points
+    # 62 pts ≈ 22mm → each chart = 248 pts ≈ 87.5mm; total = 248+6+248 = 502 pts < 527 ✓
+    rasi_by  = _planets_by_sign_r(pd_, retro)
+    nav_by   = _planets_by_navamsa_r(nav, retro)
+    _cw = 62  # raw points per cell
+    rasi_t2  = _pdf_si_chart(rasi_by,  "RASI",    cell_w=_cw, cell_h=34)
+    nav_t2   = _pdf_si_chart(nav_by,   "NAVAMSA", cell_w=_cw, cell_h=34)
+    outer2   = Table([[rasi_t2, "", nav_t2]], colWidths=[_cw * 4, 6, _cw * 4])
+    outer2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(outer2)
+    story.append(Spacer(1, 6 * mm))
+
+    # Dasa balance
+    story.append(Paragraph(
+        f"<b>Dasa Balance at Birth:</b>  "
+        f"{cal['dasa_lord']} — "
+        f"Y: {cal['dasa_y']}  M: {cal['dasa_m']}  D: {cal['dasa_d']}",
+        styles["Normal"]
+    ))
+
+
+def _pdf_p3(story, result, styles, mm):
+    """Page 3: Bhava table + BHAVA chart + Dasa/Bukti table."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    house = result["house_positions"]
+    retro = result.get("planet_retrograde", [False] * 12)
+    cal   = result["calendar"]
+
+    story.append(_pdf_section_title("Bhava Cusps", styles))
+    bhava_data = [["Bhava", "Longitude", "Rasi"]]
+    for i in range(12):
+        degs = house[i]
+        sign = int(degs // 30)
+        d    = int(degs)
+        m    = int((degs - d) * 60)
+        bhava_data.append([str(i + 1), f"{d}\u00b0-{m:02d}\u2032", RASI_NAMES[sign]])
+    ts = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 8),
+        ("FONTNAME",  (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
+    ])
+    t = Table(bhava_data, colWidths=[20*mm, 28*mm, 32*mm])
+    t.setStyle(ts)
+
+    bhava_by = _planets_by_bhava_r(result["bhava_positions"], retro)
+    # cell_w in raw points; 70 pts ≈ 25mm → chart = 4×70 = 280 pts ≈ 99mm
+    # bhava table (t) = 80mm = ~226 pts; total = 226+6+280 = 512 pts < 527 ✓
+    _cw_b = 70
+    bhava_chart = _pdf_si_chart(bhava_by, "BHAVA", cell_w=_cw_b, cell_h=34)
+
+    outer = Table([[t, "", bhava_chart]],
+                  colWidths=[int(80 * mm), 6, _cw_b * 4])
+    outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(outer)
+    story.append(Spacer(1, 6 * mm))
+
+    # Dasa/Bukti table
+    story.append(_pdf_section_title("Vimsottari Dasa/Bukti Table", styles))
+    dasa_table = cal.get("dasa_table", [])
+    for drow in dasa_table:
+        story.append(Paragraph(f"<b>{drow['dasa']} Dasa</b>", styles["Normal"]))
+        bdata = [[b[0], b[1]] for b in drow["buktis"]]
+        # Split buktis into 3 columns
+        rows = []
+        for idx in range(0, 9, 3):
+            row = []
+            for jj in range(3):
+                if idx + jj < len(bdata):
+                    row.extend(bdata[idx + jj])
+                else:
+                    row.extend(["", ""])
+            rows.append(row)
+        bt = Table(rows, colWidths=[28*mm, 24*mm, 28*mm, 24*mm, 28*mm, 24*mm])
+        bt.setStyle(TableStyle([
+            ("FONTSIZE",  (0, 0), (-1, -1), 7),
+            ("GRID",      (0, 0), (-1, -1), 0.2, colors.grey),
+            ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        story.append(bt)
+        story.append(Spacer(1, 2 * mm))
+
+
+def _pdf_p4(story, result, styles, mm):
+    """Page 4: Natural Disposition + Mutual Disposition (Rasi + Navamsa)."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    mut    = result["mutual"]
+    pnames = mut["planet_names"]
+
+    def _mat_table(matrix, pnames):
+        header = [""] + pnames
+        rows   = [header]
+        for i, row in enumerate(matrix):
+            rows.append([pnames[i]] + list(row))
+        ts = TableStyle([
+            ("FONTSIZE",  (0, 0), (-1, -1), 7),
+            ("FONTNAME",  (0, 0), (0,  -1), "Helvetica-Bold"),
+            ("FONTNAME",  (0, 0), (-1,  0), "Helvetica-Bold"),
+            ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+            ("BACKGROUND",(0, 0), (-1, 0),  colors.Color(0.85, 0.85, 0.85)),
+            ("LEFTPADDING",  (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ])
+        cw = [18*mm] + [16*mm] * len(pnames)
+        t  = Table(rows, colWidths=cw)
+        t.setStyle(ts)
+        return t
+
+    story.append(_pdf_section_title("Mutual Disposition — Rasi", styles))
+    story.append(_mat_table(mut["rasi"], pnames))
+    story.append(Spacer(1, 8 * mm))
+    story.append(_pdf_section_title("Mutual Disposition — Navamsa", styles))
+    story.append(_mat_table(mut["navamsa"], pnames))
+
+
+def _pdf_ashta_section(story, ashta_dict, styles, mm):
+    """Add one planet's Ashtavarga section (3 charts + Sodhya Pinda)."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    name  = ashta_dict["name"]
+    raw   = ashta_dict["raw"]
+    thri  = ashta_dict["thri"]
+    eka   = ashta_dict["eka"]
+    contribs = ashta_dict["contributors"]
+    sp    = ashta_dict["sodhya_pinda"]
+
+    story.append(_pdf_section_title(f"{name} Ashtavarga  (Total={sum(raw)})", styles))
+
+    # Main chart: contributor abbreviations + count
+    main_by = {}
+    for s in range(12):
+        abbrs = " ".join(contribs[s])
+        main_by[s] = [f"{abbrs}", f"{raw[s]}"] if abbrs else [f"{raw[s]}"]
+
+    def cell_main(s):
+        return "\n".join(main_by.get(s, []))
+
+    from reportlab.platypus import Table as RLTable
+    main_data = [
+        [cell_main(11), cell_main(0),  cell_main(1),  cell_main(2)],
+        [cell_main(10), f"{name}\nMain\n{sum(raw)}", "", cell_main(3)],
+        [cell_main(9),  "", "",  cell_main(4)],
+        [cell_main(8),  cell_main(7),  cell_main(6),  cell_main(5)],
+    ]
+    mt = RLTable(main_data, colWidths=[44*mm]*4, rowHeights=[32*mm]*4)
+    mt.setStyle(TableStyle([
+        ("GRID",     (0,0),(-1,-1), 0.5, colors.black),
+        ("SPAN",     (1,1),(2,2)),
+        ("ALIGN",    (1,1),(2,2), "CENTER"),
+        ("VALIGN",   (1,1),(2,2), "MIDDLE"),
+        ("FONTNAME", (1,1),(2,2), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0),(-1,-1), 7),
+        ("LEADING",  (0,0),(-1,-1), 8),
+        ("VALIGN",   (0,0),(-1,-1), "TOP"),
+    ]))
+
+    # mt alone = 4×44mm = 176mm ≈ 499 pts — fits within 527 pt page width ✓
+    story.append(mt)
+    # Thri and Eka charts side by side below the main chart
+    # cell_w in raw points; 62 pts ≈ 22mm → each chart = 4×62 = 248 pts;
+    # total = 248+6+248 = 502 pts < 527 ✓
+    _cw2 = 62
+    thri_t = _pdf_ashta_chart(thri, "Thri", cell_w=_cw2, cell_h=22)
+    eka_t  = _pdf_ashta_chart(eka,  "Eka",  cell_w=_cw2, cell_h=22)
+    side2 = Table([[thri_t, "", eka_t]], colWidths=[_cw2 * 4, 6, _cw2 * 4])
+    side2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+    story.append(side2)
+    story.append(Paragraph(f"Sodhya Pinda: <b>{sp}</b>", styles["Normal"]))
+    story.append(Spacer(1, 5*mm))
+
+
+def _pdf_p5(story, result, styles, mm):
+    """Page 5: Ashtavarga for Sun, Moon, Mars."""
+    ashta = result.get("ashtavarga", {})
+    planets = ashta.get("planets", [])
+    for p in planets[:3]:
+        _pdf_ashta_section(story, p, styles, mm)
+
+
+def _pdf_p6(story, result, styles, mm):
+    """Page 6: Ashtavarga for Merc, Jupt, Venu."""
+    ashta = result.get("ashtavarga", {})
+    planets = ashta.get("planets", [])
+    for p in planets[3:6]:
+        _pdf_ashta_section(story, p, styles, mm)
+
+
+def _pdf_p7(story, result, styles, mm):
+    """Page 7: Ashtavarga for Satn + Sarvashtavarga."""
+    ashta = result.get("ashtavarga", {})
+    planets = ashta.get("planets", [])
+    if len(planets) > 6:
+        _pdf_ashta_section(story, planets[6], styles, mm)
+    sarva = ashta.get("sarva")
+    if sarva:
+        _pdf_ashta_section(story, sarva, styles, mm)
+
+
+def _pdf_p8(story, result, styles, mm):
+    """Page 8: Drig Bala 7×7 matrix + Bhava Drig aspects."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    shad  = result["shad"]
+    p7_degs = [result["planet_degs"][i] for i in [1, 2, 3, 4, 5, 6, 7]]
+
+    story.append(_pdf_section_title("Drig Bala — Pairwise Aspect Strengths", styles))
+
     try:
-        from weasyprint import HTML
-        return HTML(string=html).write_pdf()
+        drig_mat = sb.drig_bala_matrix(p7_degs)
     except Exception:
-        return None
+        drig_mat = [[0.0]*7 for _ in range(7)]
+
+    pl7 = SHAD_LABELS
+    header = [""] + pl7
+    rows   = [header]
+    for i, row in enumerate(drig_mat):
+        rows.append([pl7[i]] + [f"{v:.2f}" for v in row])
+    ts = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 8),
+        ("FONTNAME",  (0, 0), (0,  -1), "Helvetica-Bold"),
+        ("FONTNAME",  (0, 0), (-1,  0), "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("BACKGROUND",(0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
+        ("LEFTPADDING",  (0,0),(-1,-1), 3),
+        ("RIGHTPADDING", (0,0),(-1,-1), 3),
+    ])
+    cw = [22*mm] + [23*mm] * 7  # 22+7*23=183mm < 186mm ✓
+    t  = Table(rows, colWidths=cw)
+    t.setStyle(ts)
+    story.append(t)
+    story.append(Spacer(1, 8*mm))
+
+    # Ben / Mal drig summary
+    story.append(_pdf_section_title("Benefic / Malefic Drig Bala", styles))
+    bd = shad.get("ben_drig", [0]*7)
+    md = shad.get("mal_drig", [0]*7)
+    bm_data = [
+        [""] + pl7,
+        ["Ben(+)"] + [f"{v:.2f}" for v in bd],
+        ["Mal(-)"] + [f"{v:.2f}" for v in md],
+    ]
+    bmt = Table(bm_data, colWidths=[22*mm] + [23*mm]*7)  # 183mm ✓
+    bmt.setStyle(ts)
+    story.append(bmt)
+
+
+def _pdf_p9(story, result, styles, mm):
+    """Page 9: Shadbala + Bhava Bala."""
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib import colors
+
+    shad = result["shad"]
+    bb   = result["bhava_bala"]
+
+    story.append(_pdf_section_title("Shadbala — Planetary Strength", styles))
+    pl7 = SHAD_LABELS
+    shad_components = [
+        ("Sthana Bala", "sthana"),
+        ("Kala Bala",   "kala"),
+        ("Dig Bala",    "dig"),
+        ("Naisargika",  "naisa"),
+        ("Chesta Bala", "chesta"),
+        ("Drik (+)",    "ben_drig"),
+        ("Drik (-)",    "mal_drig"),
+        ("TOTAL",       "total"),
+        ("Min Req",     "min_required"),
+        ("Relative",    "relative"),
+        ("Ishta",       "ishta"),
+        ("Kashta",      "kashta"),
+    ]
+    shad_rows = [["Bala"] + pl7]
+    for label, key in shad_components:
+        row = [label] + [f"{v:.2f}" for v in shad[key]]
+        shad_rows.append(row)
+
+    ts = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 8),
+        ("FONTNAME",  (0, 0), (0,  -1), "Helvetica-Bold"),
+        ("FONTNAME",  (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("BACKGROUND",(0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
+        ("BACKGROUND",(0, 8), (-1, 8), colors.Color(0.80, 0.90, 0.80)),
+        ("LEFTPADDING",  (0,0),(-1,-1), 3),
+        ("RIGHTPADDING", (0,0),(-1,-1), 3),
+    ])
+    cw = [30*mm] + [22*mm]*7
+    t  = Table(shad_rows, colWidths=cw)
+    t.setStyle(ts)
+    story.append(t)
+    story.append(Spacer(1, 8*mm))
+
+    # Bhava Bala
+    story.append(_pdf_section_title("Bhava Bala — House Strength", styles))
+    bb_components = [
+        ("Swami Bala", "swami"),
+        ("Dig Bala",   "dig"),
+        ("Drig Bala",  "drig"),
+        ("Spl Drig",   "spl_drig"),
+        ("Occ Str",    "ostr"),
+        ("TOTAL",      "total"),
+        ("Relative",   "relative"),
+    ]
+    hdr = ["Bala"] + [f"H{h+1}" for h in range(12)]
+    bb_rows = [hdr]
+    for label, key in bb_components:
+        bb_rows.append([label] + [f"{v:.2f}" for v in bb[key]])
+
+    ts2 = TableStyle([
+        ("FONTSIZE",  (0, 0), (-1, -1), 7),
+        ("FONTNAME",  (0, 0), (0,  -1), "Helvetica-Bold"),
+        ("FONTNAME",  (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("GRID",      (0, 0), (-1, -1), 0.3, colors.grey),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.white, colors.Color(0.96, 0.96, 0.96)]),
+        ("BACKGROUND",(0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
+        ("LEFTPADDING",  (0,0),(-1,-1), 2),
+        ("RIGHTPADDING", (0,0),(-1,-1), 2),
+    ])
+    cw2 = [22*mm] + [13*mm]*12  # 22+12*13=178mm < 186mm ✓
+    t2  = Table(bb_rows, colWidths=cw2)
+    t2.setStyle(ts2)
+    story.append(t2)
+
+
+def generate_pdf(result) -> bytes:
+    """Generate a 9-page PDF horoscope matching HOR.OUT structure.
+
+    Returns raw PDF bytes suitable for st.download_button.
+    """
+    try:
+        from io import BytesIO
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, PageBreak, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import mm
+        from reportlab.lib import colors
+        from reportlab.lib.styles import ParagraphStyle
+    except ImportError as e:
+        raise RuntimeError(
+            "reportlab is required for PDF generation. "
+            "Install it with: pip install reportlab"
+        ) from e
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=12 * mm, rightMargin=12 * mm,
+        topMargin=12 * mm, bottomMargin=12 * mm,
+    )
+    styles = getSampleStyleSheet()
+    # Override heading style
+    styles["Heading1"].fontSize = 16
+    styles["Heading1"].spaceAfter = 6
+
+    story = []
+
+    _pdf_p1(story, result, styles, mm)
+    story.append(PageBreak())
+    _pdf_p2(story, result, styles, mm)
+    story.append(PageBreak())
+    _pdf_p3(story, result, styles, mm)
+    story.append(PageBreak())
+    _pdf_p4(story, result, styles, mm)
+
+    if result.get("ashtavarga"):
+        story.append(PageBreak())
+        _pdf_p5(story, result, styles, mm)
+        story.append(PageBreak())
+        _pdf_p6(story, result, styles, mm)
+        story.append(PageBreak())
+        _pdf_p7(story, result, styles, mm)
+
+    story.append(PageBreak())
+    _pdf_p8(story, result, styles, mm)
+    story.append(PageBreak())
+    _pdf_p9(story, result, styles, mm)
+
+    doc.build(story)
+    return buf.getvalue()
 
 
 # ── Custom CSS injection ──────────────────────────────────────────────────────
@@ -973,9 +1653,10 @@ def show_horoscope_tab(result):
 
     # ── Charts ──
     st.markdown('<div class="section-head">Charts</div>', unsafe_allow_html=True)
-    rasi_by_sign  = _planets_by_sign(pd_)
-    nav_by_sign   = _planets_by_navamsa(nav)
-    bhava_by_sign = _planets_by_bhava(result["bhava_positions"])
+    retro = result.get("planet_retrograde", [False] * 12)
+    rasi_by_sign  = _planets_by_sign_r(pd_, retro)
+    nav_by_sign   = _planets_by_navamsa_r(nav, retro)
+    bhava_by_sign = _planets_by_bhava_r(result["bhava_positions"], retro)
 
     ch1, ch2, ch3 = st.columns(3)
     with ch1:
@@ -1004,8 +1685,9 @@ def show_horoscope_tab(result):
         d    = int(degs)
         m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
+        label = nm + ("(R)" if retro[i] else "")
         rows.append({
-            "Graha":     nm,
+            "Graha":     label,
             "Long":      f"{d}\u00b0 {m:02d}\u2032",
             "Rasi":      RASI_NAMES[sign],
             "Nakshatra": NAKSHATRA[nak],
@@ -1098,8 +1780,8 @@ def show_html_tab(result):
             use_container_width=True,
         )
     with col2:
-        pdf_bytes = _html_to_pdf(html)
-        if pdf_bytes:
+        try:
+            pdf_bytes = generate_pdf(result)
             st.download_button(
                 label="⬇ Download PDF",
                 data=pdf_bytes,
@@ -1107,6 +1789,8 @@ def show_html_tab(result):
                 mime="application/pdf",
                 use_container_width=True,
             )
+        except Exception as _pdf_err:
+            st.warning(f"PDF unavailable: {_pdf_err}")
 
     components.html(html, height=1150, scrolling=True)
 
@@ -1158,7 +1842,7 @@ def main():
 
         # ── 1. Personal ──
         _sb_section("👤", "Personal")
-        name       = st.text_input("Full Name",      value="Arunram",
+        name       = st.text_input("Full Name",      value="Sample Data",
                                    placeholder="Enter full name")
         birthplace = st.text_input("Place of Birth", value="Salem",
                                    placeholder="City, State")
@@ -1169,7 +1853,7 @@ def main():
         _sb_section("📅", "Date & Time of Birth")
         birth_date = st.date_input(
             "Date of Birth",
-            value=dt.date(1983, 5, 28),
+            value=dt.date(1947, 8, 15),
             min_value=dt.date(1800, 1, 1),
             max_value=dt.date(2100, 12, 31),
             format="DD/MM/YYYY",

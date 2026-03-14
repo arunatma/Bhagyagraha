@@ -93,7 +93,7 @@ class Mars:
     orbit_inclination_degs = degminsec_to_deg(1, 51, 6)
 
 class Mercury:
-    name = "Mercury"
+    name = "MERCURY"
     length_semi_major_axis = 0.3871     # In terms of Earth's Semi Major Axis
     eccentricity = 0.20561
     rev_days = 87.969

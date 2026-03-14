@@ -1839,7 +1839,7 @@ def main():
 
         # ── 1. Personal ──
         _sb_section("👤", "Personal")
-        name       = st.text_input("Full Name",      value="Arunram",
+        name       = st.text_input("Full Name",      value="Sample Data",
                                    placeholder="Enter full name")
         birthplace = st.text_input("Place of Birth", value="Salem",
                                    placeholder="City, State")
@@ -1850,7 +1850,7 @@ def main():
         _sb_section("📅", "Date & Time of Birth")
         birth_date = st.date_input(
             "Date of Birth",
-            value=dt.date(1983, 5, 28),
+            value=dt.date(1947, 8, 15),
             min_value=dt.date(1800, 1, 1),
             max_value=dt.date(2100, 12, 31),
             format="DD/MM/YYYY",

@@ -284,9 +284,6 @@ def compute(input_params):
         planet_latitude[_idx]   = seven[_nm].get("lat", 0.0)
         planet_retrograde[_idx] = (_gvel < 0)
 
-    planet_retrograde[10] = True   # Rahu always retrograde
-    planet_retrograde[11] = True   # Ketu always retrograde
-
     ashta = sb.compute_ashtavarga(planet_degs)
 
     prec_degs   = sun_params["prec"]
@@ -1109,8 +1106,8 @@ def _pdf_p4(story, result, styles, mm):
     story.append(_mat_table(mut["navamsa"], pnames))
 
 
-def _pdf_ashta_section(story, ashta_dict, styles, mm):
-    """Add one planet's Ashtavarga section (3 charts + Sodhya Pinda)."""
+def _pdf_ashta_section(ashta_dict, styles, mm):
+    """Return flowables for one planet's Ashtavarga section (3 charts + Sodhya Pinda)."""
     from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
     from reportlab.lib import colors
 
@@ -1121,7 +1118,8 @@ def _pdf_ashta_section(story, ashta_dict, styles, mm):
     contribs = ashta_dict["contributors"]
     sp    = ashta_dict["sodhya_pinda"]
 
-    story.append(_pdf_section_title(f"{name} Ashtavarga  (Total={sum(raw)})", styles))
+    flowables = []
+    flowables.append(_pdf_section_title(f"{name} Ashtavarga  (Total={sum(raw)})", styles))
 
     # Main chart: contributor abbreviations + count
     main_by = {}
@@ -1152,7 +1150,7 @@ def _pdf_ashta_section(story, ashta_dict, styles, mm):
     ]))
 
     # mt alone = 4×44mm = 176mm ≈ 499 pts — fits within 527 pt page width ✓
-    story.append(mt)
+    flowables.append(mt)
     # Thri and Eka charts side by side below the main chart
     # cell_w in raw points; 62 pts ≈ 22mm → each chart = 4×62 = 248 pts;
     # total = 248+6+248 = 502 pts < 527 ✓
@@ -1161,36 +1159,10 @@ def _pdf_ashta_section(story, ashta_dict, styles, mm):
     eka_t  = _pdf_ashta_chart(eka,  "Eka",  cell_w=_cw2, cell_h=22)
     side2 = Table([[thri_t, "", eka_t]], colWidths=[_cw2 * 4, 6, _cw2 * 4])
     side2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(side2)
-    story.append(Paragraph(f"Sodhya Pinda: <b>{sp}</b>", styles["Normal"]))
-    story.append(Spacer(1, 5*mm))
-
-
-def _pdf_p5(story, result, styles, mm):
-    """Page 5: Ashtavarga for Sun, Moon, Mars."""
-    ashta = result.get("ashtavarga", {})
-    planets = ashta.get("planets", [])
-    for p in planets[:3]:
-        _pdf_ashta_section(story, p, styles, mm)
-
-
-def _pdf_p6(story, result, styles, mm):
-    """Page 6: Ashtavarga for Merc, Jupt, Venu."""
-    ashta = result.get("ashtavarga", {})
-    planets = ashta.get("planets", [])
-    for p in planets[3:6]:
-        _pdf_ashta_section(story, p, styles, mm)
-
-
-def _pdf_p7(story, result, styles, mm):
-    """Page 7: Ashtavarga for Satn + Sarvashtavarga."""
-    ashta = result.get("ashtavarga", {})
-    planets = ashta.get("planets", [])
-    if len(planets) > 6:
-        _pdf_ashta_section(story, planets[6], styles, mm)
-    sarva = ashta.get("sarva")
-    if sarva:
-        _pdf_ashta_section(story, sarva, styles, mm)
+    flowables.append(side2)
+    flowables.append(Paragraph(f"Sodhya Pinda: <b>{sp}</b>", styles["Normal"]))
+    flowables.append(Spacer(1, 5*mm))
+    return flowables
 
 
 def _pdf_p8(story, result, styles, mm):
@@ -1363,12 +1335,14 @@ def generate_pdf(result) -> bytes:
     _pdf_p4(story, result, styles, mm)
 
     if result.get("ashtavarga"):
+        from reportlab.platypus import KeepTogether
+        ashta = result["ashtavarga"]
         story.append(PageBreak())
-        _pdf_p5(story, result, styles, mm)
-        story.append(PageBreak())
-        _pdf_p6(story, result, styles, mm)
-        story.append(PageBreak())
-        _pdf_p7(story, result, styles, mm)
+        for p in ashta.get("planets", []):
+            story.append(KeepTogether(_pdf_ashta_section(p, styles, mm)))
+        sarva = ashta.get("sarva")
+        if sarva:
+            story.append(KeepTogether(_pdf_ashta_section(sarva, styles, mm)))
 
     story.append(PageBreak())
     _pdf_p8(story, result, styles, mm)

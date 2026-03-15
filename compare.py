@@ -16,7 +16,7 @@ Usage
 # Show ALL fields (not just mismatches):
   python compare.py --input data.txt --c-ref tests/name/expected.out --verbose
 
-# Limit to one section (calendar | planets | bhava-cusps | shadbala | bhava-bala | mutual-disp):
+# Limit to one section (calendar | planets | bhava-cusps | shadbala | bhava-bala | mutual-disp):  # noqa: E501
   python compare.py --input data.txt --c-ref tests/name/expected.out --section planets
 
 # Run all built-in test cases (requires tests/ directory):
@@ -24,13 +24,12 @@ Usage
 """
 
 import argparse
-import os
 import io
+import os
 import re
 import shutil
 import subprocess
 import sys
-import tempfile
 
 # Force UTF-8 output on Windows terminals (avoids cp1252 UnicodeEncodeError)
 if hasattr(sys.stdout, "buffer"):
@@ -39,27 +38,53 @@ if hasattr(sys.stdout, "buffer"):
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 WORKTREE = os.path.dirname(os.path.abspath(__file__))
-BIN_DIR  = os.path.normpath(os.path.join(WORKTREE, "..", "..", "..",
-                                         "Bhagyagraha", "bin"))
-HOROS_EXE    = os.path.join(BIN_DIR, "horos.exe")
-TESTS_DIR    = os.path.join(WORKTREE, "tests")
+BIN_DIR = os.path.normpath(
+    os.path.join(WORKTREE, "..", "..", "..", "Bhagyagraha", "bin")
+)
+HOROS_EXE = os.path.join(BIN_DIR, "horos.exe")
+TESTS_DIR = os.path.join(WORKTREE, "tests")
 
-PLANET_ORDER = ["LAGN", "SUN", "MOON", "MARS", "MERC", "JUPT",
-                "VENU", "SATN", "URAN", "NEPT", "RAHU", "KETU"]
+PLANET_ORDER = [
+    "LAGN",
+    "SUN",
+    "MOON",
+    "MARS",
+    "MERC",
+    "JUPT",
+    "VENU",
+    "SATN",
+    "URAN",
+    "NEPT",
+    "RAHU",
+    "KETU",
+]
 SHAD_PLANETS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venus", "Saturn"]
 MUTUAL_PLANETS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venu", "Satn", "Rahu", "Ketu"]
 
-RASI_NAMES = ["Mesha", "Rishabha", "Mithuna", "Kataka", "Simha", "Kanya",
-              "Tula", "Vrischika", "Dhanus", "Makara", "Kumbha", "Meena"]
+RASI_NAMES = [
+    "Mesha",
+    "Rishabha",
+    "Mithuna",
+    "Kataka",
+    "Simha",
+    "Kanya",
+    "Tula",
+    "Vrischika",
+    "Dhanus",
+    "Makara",
+    "Kumbha",
+    "Meena",
+]
 RASI_TO_IDX = {n: i for i, n in enumerate(RASI_NAMES)}
 
 # Thresholds
-DEG_PASS = 0.05    # < 3 arcmin
-DEG_WARN = 0.50    # < 30 arcmin
+DEG_PASS = 0.05  # < 3 arcmin
+DEG_WARN = 0.50  # < 30 arcmin
 BAL_PASS = 0.05
 BAL_WARN = 0.15
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _dm_to_deg(deg_str, min_str):
     """Convert 'deg' and 'min' strings to decimal degrees."""
@@ -87,6 +112,7 @@ def _str_status(a, b):
 
 
 # ── C Output Parser (HOR.OUT) ──────────────────────────────────────────────────
+
 
 def parse_c_output(text):
     """Parse HOR.OUT text into a structured dict."""
@@ -147,33 +173,33 @@ def parse_c_output(text):
     data["calendar"] = cal
 
     # ── Nirayana Longitudes ──
-    # C format:  LAGN      60-31    Mrigasirsha     3    MARS      7    0  0  0      0- 0
+    # C format:  LAGN      60-31    Mrigasirsha     3    MARS      7    0  0  0      0- 0  # noqa: E501
     planet_pat = re.compile(
         r"^\s*(LAGN|SUN|MOON|MARS|MERC|JUPT(?:\(R\))?|VENU|SATN(?:\(R\))?|"
         r"URAN(?:\(R\))?|NEPT(?:\(R\))?|RAHU|KETU)\s+"
-        r"(\d+)-(\d+)\s+"      # longitude deg-min
-        r"(\w+)\s+"            # nakshatra
-        r"(\d+)\s+"            # pada
-        r"(\w+)\s+"            # ruler
-        r"(\d+)"               # navamsa number
+        r"(\d+)-(\d+)\s+"  # longitude deg-min
+        r"(\w+)\s+"  # nakshatra
+        r"(\d+)\s+"  # pada
+        r"(\w+)\s+"  # ruler
+        r"(\d+)"  # navamsa number
     )
     for line in lines:
         m = planet_pat.match(line)
         if m:
-            name  = m.group(1).rstrip("(R)").rstrip("(").strip()
+            name = m.group(1).rstrip("(R)").rstrip("(").strip()
             # Normalise: JUPT(R) → JUPT, SATN(R) → SATN, etc.
-            name  = re.sub(r"\(R\)", "", name).strip()
-            deg   = int(m.group(2))
-            mins  = int(m.group(3))
-            naks  = m.group(4)
-            pada  = int(m.group(5))
-            nav   = int(m.group(7))  # 1-12
+            name = re.sub(r"\(R\)", "", name).strip()
+            deg = int(m.group(2))
+            mins = int(m.group(3))
+            naks = m.group(4)
+            pada = int(m.group(5))
+            nav = int(m.group(7))  # 1-12
             long_abs = deg + mins / 60.0
             data["planets"][name] = {
                 "long_abs": long_abs,
                 "nakshatra": naks,
                 "pada": pada,
-                "navamsa_num": nav - 1,   # store as 0-11
+                "navamsa_num": nav - 1,  # store as 0-11
             }
 
     # ── Bhava BEG / MID ──
@@ -187,17 +213,32 @@ def parse_c_output(text):
             in_bhava = True
         if not in_bhava:
             continue
-        m = re.search(r"BEG\s*:.*?(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)", line)
+        m = re.search(
+            r"BEG\s*:.*?(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)",  # noqa: E501
+            line,
+        )
         if m:
-            vals = [int(m.group(i)) + int(m.group(i+1))/60.0 for i in range(1, 13, 2)]
+            vals = [
+                int(m.group(i)) + int(m.group(i + 1)) / 60.0 for i in range(1, 13, 2)
+            ]
             beg_vals.extend(vals)
-        m = re.search(r"^\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)", line)
+        m = re.search(
+            r"^\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)",  # noqa: E501
+            line,
+        )
         if m and len(beg_vals) == 6 and len(beg_vals) < 12:
-            vals = [int(m.group(i)) + int(m.group(i+1))/60.0 for i in range(1, 13, 2)]
+            vals = [
+                int(m.group(i)) + int(m.group(i + 1)) / 60.0 for i in range(1, 13, 2)
+            ]
             beg_vals.extend(vals)
-        m = re.search(r"MID\s*:.*?(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)", line)
+        m = re.search(
+            r"MID\s*:.*?(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-\s*(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)\s+(\d+)-(\d+)",  # noqa: E501
+            line,
+        )
         if m:
-            vals = [int(m.group(i)) + int(m.group(i+1))/60.0 for i in range(1, 13, 2)]
+            vals = [
+                int(m.group(i)) + int(m.group(i + 1)) / 60.0 for i in range(1, 13, 2)
+            ]
             mid_vals.extend(vals)
         if len(mid_vals) == 6:
             # look for the second MID row
@@ -211,21 +252,21 @@ def parse_c_output(text):
     # ── Shadbala ──
     shad = {}
     shad_map = {
-        "Sthana Bala":         "sthana",
-        "Kala Bala":           "kala",
-        "Dig Bala":            "dig",
-        "Naisargika Bala":     "naisa",
-        "Chesta Bala":         "chesta",
-        "Drik Bala(Benefic)":  "ben_drig",
-        "Drik Bala(Malefic)":  "mal_drig",
-        "TOTAL":               "total",
-        "Relative":            "relative",
-        "Ishta Bala":          "ishta",
-        "Kashta Bala":         "kashta",
-        "Ishta-Kashta Net":    "net",
+        "Sthana Bala": "sthana",
+        "Kala Bala": "kala",
+        "Dig Bala": "dig",
+        "Naisargika Bala": "naisa",
+        "Chesta Bala": "chesta",
+        "Drik Bala(Benefic)": "ben_drig",
+        "Drik Bala(Malefic)": "mal_drig",
+        "TOTAL": "total",
+        "Relative": "relative",
+        "Ishta Bala": "ishta",
+        "Kashta Bala": "kashta",
+        "Ishta-Kashta Net": "net",
     }
     in_shad = False
-    pending_key = None   # for two-line entries like "Relative\nStrength ..."
+    pending_key = None  # for two-line entries like "Relative\nStrength ..."
     for line in lines:
         if "SHADBALA" in line:
             in_shad = True
@@ -246,7 +287,7 @@ def parse_c_output(text):
                 if nums:
                     shad[key] = [float(x) for x in nums[:7]]
                 else:
-                    pending_key = key   # values on next line
+                    pending_key = key  # values on next line
                 break
     # Minimum required (string row, skip)
     data["shadbala"] = shad
@@ -278,7 +319,7 @@ def parse_c_output(text):
     data["bhava_bala"] = bhava_bal
 
     # ── Mutual Disposition ──
-    data["mutual_rasi"],    _ = _parse_mutual(lines, "RASI chart")
+    data["mutual_rasi"], _ = _parse_mutual(lines, "RASI chart")
     data["mutual_navamsa"], _ = _parse_mutual(lines, "NAVAMSA chart")
 
     return data
@@ -287,9 +328,8 @@ def parse_c_output(text):
 def _parse_bhava_beg_mid(lines):
     """Two-pass parser for BEG/MID bhava lines in HOR.OUT."""
     beg, mid = [], []
-    state = None   # "beg1","beg2","mid1","mid2"
+    state = None  # "beg1","beg2","mid1","mid2"
     for line in lines:
-        stripped = line.strip()
         # BEG first row
         m = re.search(r"BEG\s*:\s*1 TO 6\s+([\d\s-]+)", line)
         if m:
@@ -343,7 +383,9 @@ def _parse_mutual(lines, section_marker):
         if not header_seen:
             continue
         # Data rows: "    Sun     Sama   Sama   ..."
-        m = re.match(r"\s+(\w+)\s+((?:(?:Sama|Mitra|Satru|A\.Mit|A\.Sat)\s*){2,})", line)
+        m = re.match(
+            r"\s+(\w+)\s+((?:(?:Sama|Mitra|Satru|A\.Mit|A\.Sat)\s*){2,})", line
+        )
         if m:
             vals = re.findall(r"A\.Mit|A\.Sat|Sama|Mitra|Satru", line)
             matrix.append(vals[:9])
@@ -354,6 +396,7 @@ def _parse_mutual(lines, section_marker):
 
 
 # ── Python Output Parser (astro.py stdout) ─────────────────────────────────────
+
 
 def parse_py_output(text):
     """Parse astro.py stdout into the same structured dict."""
@@ -417,25 +460,25 @@ def parse_py_output(text):
     # Python format:  LAGN       18-22      Rohini          3     Rishabha      Mithuna
     planet_pat = re.compile(
         r"^\s*(LAGN|SUN|MOON|MARS|MERC|JUPT|VENU|SATN|URAN|NEPT|RAHU|KETU)\s+"
-        r"(\d+)-(\d+)\s+"      # deg-min within sign
-        r"(\w+)\s+"            # nakshatra
-        r"(\d+)\s+"            # pada
-        r"(\w+)\s+"            # rasi name
-        r"(\w+)"               # navamsa rasi name
+        r"(\d+)-(\d+)\s+"  # deg-min within sign
+        r"(\w+)\s+"  # nakshatra
+        r"(\d+)\s+"  # pada
+        r"(\w+)\s+"  # rasi name
+        r"(\w+)"  # navamsa rasi name
     )
     for line in lines:
         m = planet_pat.match(line)
         if m:
-            name     = m.group(1)
-            deg_in   = int(m.group(2))
-            min_in   = int(m.group(3))
-            naks     = m.group(4)
-            pada     = int(m.group(5))
-            rasi     = m.group(6)
+            name = m.group(1)
+            deg_in = int(m.group(2))
+            min_in = int(m.group(3))
+            naks = m.group(4)
+            pada = int(m.group(5))
+            rasi = m.group(6)
             nav_rasi = m.group(7)
             rasi_idx = RASI_TO_IDX.get(rasi, 0)
             long_abs = rasi_idx * 30.0 + deg_in + min_in / 60.0
-            nav_num  = RASI_TO_IDX.get(nav_rasi, 0)   # 0-11
+            nav_num = RASI_TO_IDX.get(nav_rasi, 0)  # 0-11
             data["planets"][name] = {
                 "long_abs": long_abs,
                 "nakshatra": naks,
@@ -445,37 +488,36 @@ def parse_py_output(text):
 
     # ── Bhava Cusps ──
     # Python: "  House  1:   18-22  Rishabha"
-    # Python doesn't output BEG separately — house cusps are the MID (Lagna = house 1 midpoint)
+    # Python doesn't output BEG separately — house cusps are the MID (Lagna = house 1 midpoint)  # noqa: E501
     # The Python astro.py prints house cusps as midpoints (lagna = ascendant degree)
     beg = []
     for line in lines:
         m = re.match(r"\s*House\s+(\d+):\s+(\d+)-(\d+)\s+(\w+)", line)
         if m:
-            house_num = int(m.group(1))
-            deg_in    = int(m.group(2))
-            min_in    = int(m.group(3))
-            rasi      = m.group(4)
-            rasi_idx  = RASI_TO_IDX.get(rasi, 0)
-            long_abs  = rasi_idx * 30.0 + deg_in + min_in / 60.0
+            deg_in = int(m.group(2))
+            min_in = int(m.group(3))
+            rasi = m.group(4)
+            rasi_idx = RASI_TO_IDX.get(rasi, 0)
+            long_abs = rasi_idx * 30.0 + deg_in + min_in / 60.0
             beg.append(long_abs)
-    data["bhava_beg"] = beg   # Python outputs house cusps (= C's MID row)
-    data["bhava_mid"] = beg   # treat same for now
+    data["bhava_beg"] = beg  # Python outputs house cusps (= C's MID row)
+    data["bhava_mid"] = beg  # treat same for now
 
     # ── Shadbala ──
     shad = {}
     shad_map = {
-        "Sthana Bala":   "sthana",
-        "Kala Bala":     "kala",
-        "Dig Bala":      "dig",
-        "Naisargika":    "naisa",
-        "Chesta Bala":   "chesta",
+        "Sthana Bala": "sthana",
+        "Kala Bala": "kala",
+        "Dig Bala": "dig",
+        "Naisargika": "naisa",
+        "Chesta Bala": "chesta",
         "Drik Bala (+)": "ben_drig",
         "Drik Bala (-)": "mal_drig",
-        "TOTAL":         "total",
-        "Relative":      "relative",
-        "Ishta Bala":    "ishta",
-        "Kashta Bala":   "kashta",
-        "Ishta-Kashta":  "net",
+        "TOTAL": "total",
+        "Relative": "relative",
+        "Ishta Bala": "ishta",
+        "Kashta Bala": "kashta",
+        "Ishta-Kashta": "net",
     }
     in_shad = False
     for line in lines:
@@ -497,12 +539,12 @@ def parse_py_output(text):
     bhava_bal = {}
     py_bhava_map = {
         "Swami Bala": "swami",
-        "Dig Bala":   "dig",
-        "Drig Bala":  "drig",
-        "Spl Drig":   "spl",
-        "Occ Str":    "occ",
-        "Total":      "total",
-        "Relative":   "relative",
+        "Dig Bala": "dig",
+        "Drig Bala": "drig",
+        "Spl Drig": "spl",
+        "Occ Str": "occ",
+        "Total": "total",
+        "Relative": "relative",
     }
     in_bhava_bal = False
     for line in lines:
@@ -521,7 +563,7 @@ def parse_py_output(text):
     data["bhava_bala"] = bhava_bal
 
     # ── Mutual Disposition ──
-    data["mutual_rasi"],    _ = _parse_py_mutual(lines, "MUTUAL DISPOSITION (RASI)")
+    data["mutual_rasi"], _ = _parse_py_mutual(lines, "MUTUAL DISPOSITION (RASI)")
     data["mutual_navamsa"], _ = _parse_py_mutual(lines, "MUTUAL DISPOSITION (NAVAMSA)")
 
     return data
@@ -555,6 +597,7 @@ def _parse_py_mutual(lines, section_marker):
 
 # ── Run programs ───────────────────────────────────────────────────────────────
 
+
 def run_python(input_file):
     """Run astro.py with the given input file and return stdout."""
     astro_py = os.path.join(WORKTREE, "astro.py")
@@ -582,21 +625,21 @@ def run_c(input_file, horos_exe=None):
     if not os.path.isfile(horos_exe):
         print(f"[ERROR] horos.exe not found at: {horos_exe}", file=sys.stderr)
         return None
-    bin_dir   = os.path.dirname(horos_exe)
+    bin_dir = os.path.dirname(horos_exe)
     data_dest = os.path.join(bin_dir, "data.txt")
-    hor_out   = os.path.join(bin_dir, "HOR.OUT")
+    hor_out = os.path.join(bin_dir, "HOR.OUT")
 
     shutil.copy(input_file, data_dest)
-    result = subprocess.run([horos_exe], cwd=bin_dir,
-                            capture_output=True, text=True)
+    subprocess.run([horos_exe], cwd=bin_dir, capture_output=True, text=True)
     if not os.path.isfile(hor_out):
-        print(f"[ERROR] HOR.OUT not generated.", file=sys.stderr)
+        print("[ERROR] HOR.OUT not generated.", file=sys.stderr)
         return None
     with open(hor_out, "r", encoding="latin-1") as f:
         return f.read()
 
 
 # ── Comparison ─────────────────────────────────────────────────────────────────
+
 
 def compare(c_data, py_data, section=None, verbose=False):
     """Compare two parsed data dicts. Returns a list of result rows."""
@@ -618,8 +661,12 @@ def compare(c_data, py_data, section=None, verbose=False):
         rows += _cmp_bhava_bala(c_data["bhava_bala"], py_data["bhava_bala"], verbose)
 
     if section in (None, "mutual-disp"):
-        rows += _cmp_mutual(c_data["mutual_rasi"],    py_data["mutual_rasi"],    "RASI",    verbose)
-        rows += _cmp_mutual(c_data["mutual_navamsa"], py_data["mutual_navamsa"], "NAVAMSA",verbose)
+        rows += _cmp_mutual(
+            c_data["mutual_rasi"], py_data["mutual_rasi"], "RASI", verbose
+        )
+        rows += _cmp_mutual(
+            c_data["mutual_navamsa"], py_data["mutual_navamsa"], "NAVAMSA", verbose
+        )
 
     return rows
 
@@ -627,16 +674,16 @@ def compare(c_data, py_data, section=None, verbose=False):
 def _cmp_calendar(c_cal, py_cal, verbose):
     rows = [("SECTION", "CALENDAR", "", "", "", "")]
     fields = [
-        ("paksham",    "Paksham"),
-        ("thithi",     "Thithi"),
-        ("yogam",      "Yogam"),
-        ("karanam",    "Karanam"),
+        ("paksham", "Paksham"),
+        ("thithi", "Thithi"),
+        ("yogam", "Yogam"),
+        ("karanam", "Karanam"),
         ("tamil_date", "Tamil Date"),
-        ("saka_date",  "Saka Date"),
-        ("kali_year",  "Kali Year"),
-        ("weekday",    "Weekday"),
-        ("sunrise",    "Sunrise"),
-        ("sunset",     "Sunset"),
+        ("saka_date", "Saka Date"),
+        ("kali_year", "Kali Year"),
+        ("weekday", "Weekday"),
+        ("sunrise", "Sunrise"),
+        ("sunset", "Sunset"),
     ]
     for key, label in fields:
         cv = str(c_cal.get(key, "—"))
@@ -655,37 +702,46 @@ def _cmp_calendar(c_cal, py_cal, verbose):
 
 def _cmp_planets(c_planets, py_planets, verbose):
     rows = [("SECTION", "NIRAYANA LONGITUDES (absolute degrees)", "", "", "", "")]
-    rows.append(("HEADER", "Planet", "C abs°", "Py abs°", "Δ°", "C Naksh / Py Naksh / Status"))
+    rows.append(
+        ("HEADER", "Planet", "C abs°", "Py abs°", "Δ°", "C Naksh / Py Naksh / Status")
+    )
     for name in PLANET_ORDER:
         cp = c_planets.get(name, {})
         pp = py_planets.get(name, {})
         if not cp and not pp:
             continue
-        c_abs  = cp.get("long_abs",  float("nan"))
-        p_abs  = pp.get("long_abs",  float("nan"))
-        delta  = abs(c_abs - p_abs) if (cp and pp) else float("nan")
+        c_abs = cp.get("long_abs", float("nan"))
+        p_abs = pp.get("long_abs", float("nan"))
+        delta = abs(c_abs - p_abs) if (cp and pp) else float("nan")
         # Handle wrap-around (e.g., 359° vs 1°)
         if delta > 180:
             delta = 360 - delta
         st = _deg_status(delta) if not (delta != delta) else "—"
         c_naks = cp.get("nakshatra", "—")
         p_naks = pp.get("nakshatra", "—")
-        c_nav  = cp.get("navamsa_num", "—")
-        p_nav  = pp.get("navamsa_num", "—")
+        c_nav = cp.get("navamsa_num", "—")
+        p_nav = pp.get("navamsa_num", "—")
         c_pada = cp.get("pada", "—")
         p_pada = pp.get("pada", "—")
         detail = f"{c_naks}/{p_naks}  Pada:{c_pada}/{p_pada}  Nav:{c_nav}/{p_nav}"
         if verbose or st not in ("PASS",):
-            rows.append(("DATA", name,
-                         f"{c_abs:.3f}" if cp else "—",
-                         f"{p_abs:.3f}" if pp else "—",
-                         f"{delta:.3f}" if not (delta != delta) else "—",
-                         f"{st}  {detail}"))
+            rows.append(
+                (
+                    "DATA",
+                    name,
+                    f"{c_abs:.3f}" if cp else "—",
+                    f"{p_abs:.3f}" if pp else "—",
+                    f"{delta:.3f}" if not (delta != delta) else "—",
+                    f"{st}  {detail}",
+                )
+            )
     return rows
 
 
 def _cmp_bhava_cusps(c_data, py_data, verbose):
-    rows = [("SECTION", "BHAVA CUSPS (house midpoint absolute degrees)", "", "", "", "")]
+    rows = [
+        ("SECTION", "BHAVA CUSPS (house midpoint absolute degrees)", "", "", "", "")
+    ]
     rows.append(("HEADER", "House", "C MID°", "Py Cusp°", "Δ°", "Status"))
     c_mid = c_data.get("bhava_mid", [])
     py_beg = py_data.get("bhava_beg", [])
@@ -697,26 +753,36 @@ def _cmp_bhava_cusps(c_data, py_data, verbose):
             delta = 360 - delta
         st = _deg_status(delta)
         if verbose or st != "PASS":
-            rows.append(("DATA", str(i+1),
-                         f"{c_v:.3f}", f"{p_v:.3f}", f"{delta:.3f}", st))
+            rows.append(
+                ("DATA", str(i + 1), f"{c_v:.3f}", f"{p_v:.3f}", f"{delta:.3f}", st)
+            )
     return rows
 
 
 def _cmp_shadbala(c_shad, py_shad, verbose):
-    rows = [("SECTION", "SHADBALA (7 planets: Sun Moon Mars Merc Jupt Venus Saturn)", "", "", "", "")]
+    rows = [
+        (
+            "SECTION",
+            "SHADBALA (7 planets: Sun Moon Mars Merc Jupt Venus Saturn)",
+            "",
+            "",
+            "",
+            "",
+        )
+    ]
     components = [
-        ("sthana",   "Sthana Bala"),
-        ("kala",     "Kala Bala"),
-        ("dig",      "Dig Bala"),
-        ("naisa",    "Naisargika"),
-        ("chesta",   "Chesta Bala"),
+        ("sthana", "Sthana Bala"),
+        ("kala", "Kala Bala"),
+        ("dig", "Dig Bala"),
+        ("naisa", "Naisargika"),
+        ("chesta", "Chesta Bala"),
         ("ben_drig", "Drik Bala (+)"),
         ("mal_drig", "Drik Bala (-)"),
-        ("total",    "TOTAL"),
+        ("total", "TOTAL"),
         ("relative", "Relative"),
-        ("ishta",    "Ishta Bala"),
-        ("kashta",   "Kashta Bala"),
-        ("net",      "Net (I-K)"),
+        ("ishta", "Ishta Bala"),
+        ("kashta", "Kashta Bala"),
+        ("net", "Net (I-K)"),
     ]
     for key, label in components:
         cv = c_shad.get(key, [])
@@ -730,23 +796,28 @@ def _cmp_shadbala(c_shad, py_shad, verbose):
             delta = abs(c_v - p_v) if not (c_v != c_v or p_v != p_v) else float("nan")
             st = _bal_status(delta) if not (delta != delta) else "—"
             if verbose or st not in ("PASS",):
-                rows.append(("DATA", f"  {pname}",
-                             f"{c_v:.4f}" if not (c_v != c_v) else "—",
-                             f"{p_v:.4f}" if not (p_v != p_v) else "—",
-                             f"{delta:.4f}" if not (delta != delta) else "—",
-                             st))
+                rows.append(
+                    (
+                        "DATA",
+                        f"  {pname}",
+                        f"{c_v:.4f}" if not (c_v != c_v) else "—",
+                        f"{p_v:.4f}" if not (p_v != p_v) else "—",
+                        f"{delta:.4f}" if not (delta != delta) else "—",
+                        st,
+                    )
+                )
     return rows
 
 
 def _cmp_bhava_bala(c_bb, py_bb, verbose):
     rows = [("SECTION", "BHAVA BALA (12 houses)", "", "", "", "")]
     components = [
-        ("swami",    "Swami Bala"),
-        ("dig",      "Dig Bala"),
-        ("drig",     "Drig Bala"),
-        ("spl",      "Spl Drig"),
-        ("occ",      "Occ Str"),
-        ("total",    "TOTAL"),
+        ("swami", "Swami Bala"),
+        ("dig", "Dig Bala"),
+        ("drig", "Drig Bala"),
+        ("spl", "Spl Drig"),
+        ("occ", "Occ Str"),
+        ("total", "TOTAL"),
         ("relative", "Relative"),
     ]
     for key, label in components:
@@ -761,8 +832,16 @@ def _cmp_bhava_bala(c_bb, py_bb, verbose):
             delta = abs(c_v - p_v)
             st = _bal_status(delta)
             if verbose or st != "PASS":
-                rows.append(("DATA", f"  H{i+1}",
-                             f"{c_v:.4f}", f"{p_v:.4f}", f"{delta:.4f}", st))
+                rows.append(
+                    (
+                        "DATA",
+                        f"  H{i+1}",
+                        f"{c_v:.4f}",
+                        f"{p_v:.4f}",
+                        f"{delta:.4f}",
+                        st,
+                    )
+                )
     return rows
 
 
@@ -787,6 +866,7 @@ def _cmp_mutual(c_mat, py_mat, label, verbose):
 
 # ── Report Printer ─────────────────────────────────────────────────────────────
 
+
 def print_report(rows, name=""):
     WIDTH = 76
     print()
@@ -801,7 +881,9 @@ def print_report(rows, name=""):
         if kind == "SECTION":
             print()
             print(f"  -- {row[1]}")
-            print(f"  {'Field':<22} {'C value':<20} {'Python value':<20} {'Delta':<8} {'Status'}")
+            print(
+                f"  {'Field':<22} {'C value':<20} {'Python value':<20} {'Delta':<8} {'Status'}"  # noqa: E501
+            )
             print(f"  {'-'*22} {'-'*20} {'-'*20} {'-'*8} {'-'*10}")
         elif kind == "SUBHEAD":
             print(f"\n  {row[1]}")
@@ -810,7 +892,9 @@ def print_report(rows, name=""):
         elif kind == "DATA":
             _, field, cv, pv, delta, status = row
             st_word = status.split()[0] if status else ""
-            indicator = " <--" if st_word == "FAIL" else ("  ?" if st_word == "WARN" else "")
+            indicator = (
+                " <--" if st_word == "FAIL" else ("  ?" if st_word == "WARN" else "")
+            )
             if st_word == "PASS":
                 pass_count += 1
             elif st_word == "WARN":
@@ -822,13 +906,16 @@ def print_report(rows, name=""):
     print()
     print("=" * WIDTH)
     total = pass_count + warn_count + fail_count
-    print(f"  Summary: {pass_count} PASS  |  {warn_count} WARN  |  {fail_count} FAIL  "
-          f"  (of {total} checked fields)")
+    print(
+        f"  Summary: {pass_count} PASS  |  {warn_count} WARN  |  {fail_count} FAIL  "
+        f"  (of {total} checked fields)"
+    )
     print("=" * WIDTH)
     print()
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -836,20 +923,40 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--input",    metavar="FILE",
-                        help="Birth data input file (default: data.txt)")
-    parser.add_argument("--c-ref",   metavar="FILE",
-                        help="Existing C output file (HOR.OUT) to use as reference")
-    parser.add_argument("--horos",   metavar="EXE",
-                        help="Path to horos.exe (runs it live to generate C output)")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Show all fields, not just mismatches")
-    parser.add_argument("--section", metavar="SEC",
-                        choices=["calendar", "planets", "bhava-cusps",
-                                 "shadbala", "bhava-bala", "mutual-disp"],
-                        help="Show only one section")
-    parser.add_argument("--all-tests", action="store_true",
-                        help="Run all test cases in tests/ directory")
+    parser.add_argument(
+        "--input", metavar="FILE", help="Birth data input file (default: data.txt)"
+    )
+    parser.add_argument(
+        "--c-ref",
+        metavar="FILE",
+        help="Existing C output file (HOR.OUT) to use as reference",
+    )
+    parser.add_argument(
+        "--horos",
+        metavar="EXE",
+        help="Path to horos.exe (runs it live to generate C output)",
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Show all fields, not just mismatches"
+    )
+    parser.add_argument(
+        "--section",
+        metavar="SEC",
+        choices=[
+            "calendar",
+            "planets",
+            "bhava-cusps",
+            "shadbala",
+            "bhava-bala",
+            "mutual-disp",
+        ],
+        help="Show only one section",
+    )
+    parser.add_argument(
+        "--all-tests",
+        action="store_true",
+        help="Run all test cases in tests/ directory",
+    )
     args = parser.parse_args()
 
     if args.all_tests:
@@ -878,16 +985,19 @@ def main():
             with open(default_ref, "r", encoding="latin-1") as f:
                 c_text = f.read()
         else:
-            print("[ERROR] Provide --c-ref or --horos.  "
-                  "Example:\n  python compare.py --input data.txt "
-                  "--c-ref tests/name/expected.out", file=sys.stderr)
+            print(
+                "[ERROR] Provide --c-ref or --horos.  "
+                "Example:\n  python compare.py --input data.txt "
+                "--c-ref tests/name/expected.out",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
     # Get Python output
     py_text = run_python(input_file)
 
     # Parse
-    c_data  = parse_c_output(c_text)
+    c_data = parse_c_output(c_text)
     py_data = parse_py_output(py_text)
 
     # Compare & report
@@ -904,7 +1014,7 @@ def _run_all_tests(args):
         case_path = os.path.join(TESTS_DIR, case_dir)
         if not os.path.isdir(case_path):
             continue
-        input_file   = os.path.join(case_path, "input.txt")
+        input_file = os.path.join(case_path, "input.txt")
         expected_out = os.path.join(case_path, "expected.out")
 
         if not os.path.isfile(input_file):
@@ -925,10 +1035,9 @@ def _run_all_tests(args):
             continue
 
         py_text = run_python(input_file)
-        c_data  = parse_c_output(c_text)
+        c_data = parse_c_output(c_text)
         py_data = parse_py_output(py_text)
-        rows    = compare(c_data, py_data, section=args.section,
-                          verbose=args.verbose)
+        rows = compare(c_data, py_data, section=args.section, verbose=args.verbose)
         print_report(rows, name=c_data.get("name", case_dir))
 
 

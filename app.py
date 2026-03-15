@@ -448,12 +448,10 @@ def _south_indian_chart_html(by_sign, label, cell_size=90):
     )
 
 
-def _make_south_indian_chart_html(by_sign, label):
+def _make_south_indian_chart_html(by_sign, label, cell_size=90):
     """Build a complete South Indian chart table (4 rows, handles centre span)."""
-    # Grid: row 0 → 4 normal cells, row 1 → left + centre-span(2×2) + right,
-    #        row 2 → left + [skipped centre] + right, row 3 → 4 normal cells
-    cell_h = 90
-    cell_w = 90
+    cell_h = cell_size
+    cell_w = cell_size
     cell_s = f"width:{cell_w}px;height:{cell_h}px;vertical-align:top;padding:4px;font-size:11px;border:1px solid #444;"
 
     def cell(sign):
@@ -546,33 +544,32 @@ def _planets_by_bhava_r(bhava_positions, planet_retrograde):
 
 
 def generate_single_page_html(result):
-    """Compact single-page HTML: birth data + 3 charts + longitude table only.
-    Matches the style of the original C program's Arunram.html output."""
+    """Compact single-page HTML: birth data + 3 charts + longitude table.
+    Layout matches Arunram.html; styled with the contemporary teal palette."""
     inp   = result["input"]
     cal   = result["calendar"]
     pd    = result["planet_degs"]
     nav   = result["navamsa_positions"]
 
-    name      = inp["name"]
+    name       = inp["name"]
     birthplace = inp["birthplace"]
-    in_dt     = inp["in_datetime"]
-    lat_d     = int(inp["lat_degs"])
-    lat_m     = int((inp["lat_degs"] - lat_d) * 60)
-    lon_d     = int(inp["long_degs"])
-    lon_m     = int((inp["long_degs"] - lon_d) * 60)
-    lat_dir   = inp["lat_dirn"]
-    lon_dir   = inp["long_dirn"]
-    sunrise   = cal["sunrise"]
-    sunset    = cal["sunset"]
+    in_dt      = inp["in_datetime"]
+    lat_d  = int(inp["lat_degs"])
+    lat_m  = int((inp["lat_degs"] - lat_d) * 60)
+    lon_d  = int(inp["long_degs"])
+    lon_m  = int((inp["long_degs"] - lon_d) * 60)
+    lat_dir = inp["lat_dirn"]
+    lon_dir = inp["long_dirn"]
+    sunrise = cal["sunrise"]
+    sunset  = cal["sunset"]
 
     retro = result.get("planet_retrograde", [False] * 12)
-    rasi_by_sign  = _planets_by_sign_r(pd, retro)
-    nav_by_sign   = _planets_by_navamsa_r(nav, retro)
-    bhava_by_sign = _planets_by_bhava_r(result["bhava_positions"], retro)
-
-    rasi_chart  = _make_south_indian_chart_html(rasi_by_sign,  "RASI")
-    nav_chart   = _make_south_indian_chart_html(nav_by_sign,   "NAVAMSA")
-    bhava_chart = _make_south_indian_chart_html(bhava_by_sign, "BHAVA")
+    rasi_chart  = _make_south_indian_chart_html(
+        _planets_by_sign_r(pd, retro),                     "RASI",    cell_size=75)
+    nav_chart   = _make_south_indian_chart_html(
+        _planets_by_navamsa_r(nav, retro),                 "NAVAMSA", cell_size=75)
+    bhava_chart = _make_south_indian_chart_html(
+        _planets_by_bhava_r(result["bhava_positions"], retro), "BHAVA", cell_size=75)
 
     long_rows = ""
     for i, nm in enumerate(GRAHA_NAMES):
@@ -580,60 +577,97 @@ def generate_single_page_html(result):
         d    = int(degs)
         m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
-        r_mark = "<b>(R)</b>" if retro[i] else ""
+        r_mark = "&nbsp;<b style='color:#0e9688'>(R)</b>" if retro[i] else ""
         long_rows += (
-            f"<tr><td><b>{nm}</b>{r_mark}</td>"
-            f"<td align='right'>{d}&deg;</td>"
-            f"<td align='right'>{m}&prime;</td>"
-            f"<td>{NAKSHATRA[nak]}</td>"
-            f"<td>{pada}</td></tr>\n"
+            f"<tr>"
+            f"<td style='padding:2px 6px;border-bottom:1px solid #E4E4E7'>"
+            f"<b>{nm}</b>{r_mark}</td>"
+            f"<td align='right' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"
+            f"{d}&deg;</td>"
+            f"<td align='right' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"
+            f"{m}&prime;</td>"
+            f"<td style='padding:2px 6px;border-bottom:1px solid #E4E4E7'>"
+            f"{NAKSHATRA[nak]}</td>"
+            f"<td align='center' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"
+            f"{pada}</td>"
+            f"</tr>\n"
         )
 
-    ts = "border-collapse:collapse;"
+    td_hdr = "padding:4px 6px;background:#F7F7F7;border-bottom:2px solid #14B8A6;font-size:11px;color:#2D2D2D;"
+    td_key = "padding:4px 8px;font-weight:600;color:#2D2D2D;white-space:nowrap;font-size:12px;"
+    td_val = "padding:4px 8px;color:#3D3D3D;font-size:12px;"
+    chart_w = 75 * 4 + 10   # 310 px
 
     return f"""<!DOCTYPE html>
-<html>
-<body bgcolor="honeydew">
-<table height="30" align="center">
-<tr><th align="center"><font size="5" color="RED">BHAGYAGRAHA</font></th></tr>
-</table>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  body {{ font-family: Arial, sans-serif; background:#FFFFFF; margin:16px; color:#2D2D2D; }}
+  h1   {{ text-align:center; color:#14B8A6; letter-spacing:5px; font-size:20px;
+          border-bottom:2px solid #14B8A6; padding-bottom:6px; margin-bottom:12px; }}
+  table {{ border-collapse:collapse; }}
+</style>
+</head>
+<body>
+<h1>B H A G Y A G R A H A</h1>
 
-<table width="100%">
-<tr>
-  <td><table>
-    <tr><td><b>Name</b></td><td>{name}</td></tr>
-    <tr><td><b>Date of Birth</b></td><td>{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year} &mdash; {cal["weekday"]}</td></tr>
-    <tr><td><b>Time of Birth</b></td><td>{in_dt.hour}H-{in_dt.minute:02d}M (Local Std Time)</td></tr>
-    <tr><td><b>Place of Birth</b></td><td>{birthplace}</td></tr>
-    <tr><td><b>Lat-Long</b></td><td>{lat_d}&deg;-{lat_m:02d}&prime;({lat_dir})&nbsp;{lon_d}&deg;-{lon_m:02d}&prime;({lon_dir})</td></tr>
-    <tr><td><b>Janma Nakshatra</b></td><td>{cal["janma_nakshatra"]} Pada-{cal["janma_pada"]}</td></tr>
-    <tr><td><b>Paksham</b></td><td>{cal["paksham"]}</td></tr>
-    <tr><td><b>Balance of {cal["dasa_lord"]} dasa</b></td>
-        <td>Y:&nbsp;{cal["dasa_y"]}&nbsp; M:&nbsp;{cal["dasa_m"]}&nbsp; D:&nbsp;{cal["dasa_d"]}</td></tr>
-  </table></td>
-  <td><table>
-    <tr><td><b>Thithi</b></td><td>{cal["thithi"]}</td></tr>
-    <tr><td><b>Yogam</b></td><td>{cal["yogam"]}</td></tr>
-    <tr><td><b>Karanam</b></td><td>{cal["karanam"]}</td></tr>
-    <tr><td><b>Tamil Date</b></td><td>{cal["tamil_day"]} {cal["tamil_month"]} {cal["tamil_year"]}</td></tr>
-    <tr><td><b>Saka Date</b></td><td>{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>
-    <tr><td><b>Kali Year</b></td><td>{cal["kali_year"]}</td></tr>
-    <tr><td><b>Sun Rise</b></td><td>{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
-    <tr><td><b>Sun Set</b></td><td>{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
-  </table></td>
+<!-- Birth data: 2-column layout matching Arunram.html -->
+<table width="100%" style="margin-bottom:14px;">
+<tr valign="top">
+  <td>
+    <table>
+      <tr><td style="{td_key}">Name</td><td style="{td_val}">{name}</td></tr>
+      <tr><td style="{td_key}">Date of Birth</td>
+          <td style="{td_val}">{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year} &mdash; {cal["weekday"]}</td></tr>
+      <tr><td style="{td_key}">Time of Birth</td>
+          <td style="{td_val}">{in_dt.hour}H-{in_dt.minute:02d}M (Local Std Time)</td></tr>
+      <tr><td style="{td_key}">Place of Birth</td><td style="{td_val}">{birthplace}</td></tr>
+      <tr><td style="{td_key}">Lat-Long</td>
+          <td style="{td_val}">{lat_d}&deg;-{lat_m:02d}&prime;({lat_dir})&nbsp;
+              {lon_d}&deg;-{lon_m:02d}&prime;({lon_dir})</td></tr>
+      <tr><td style="{td_key}">Janma Nakshatra</td>
+          <td style="{td_val}">{cal["janma_nakshatra"]} Pada-{cal["janma_pada"]}</td></tr>
+      <tr><td style="{td_key}">Paksham</td><td style="{td_val}">{cal["paksham"]}</td></tr>
+      <tr><td style="{td_key}">Balance of {cal["dasa_lord"]} dasa</td>
+          <td style="{td_val}">Y:&nbsp;{cal["dasa_y"]}&nbsp; M:&nbsp;{cal["dasa_m"]}&nbsp; D:&nbsp;{cal["dasa_d"]}</td></tr>
+    </table>
+  </td>
+  <td>
+    <table>
+      <tr><td style="{td_key}">Thithi</td><td style="{td_val}">{cal["thithi"]}</td></tr>
+      <tr><td style="{td_key}">Yogam</td><td style="{td_val}">{cal["yogam"]}</td></tr>
+      <tr><td style="{td_key}">Karanam</td><td style="{td_val}">{cal["karanam"]}</td></tr>
+      <tr><td style="{td_key}">Tamil Date</td>
+          <td style="{td_val}">{cal["tamil_day"]} {cal["tamil_month"]} {cal["tamil_year"]}</td></tr>
+      <tr><td style="{td_key}">Saka Date</td>
+          <td style="{td_val}">{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>
+      <tr><td style="{td_key}">Kali Year</td><td style="{td_val}">{cal["kali_year"]}</td></tr>
+      <tr><td style="{td_key}">Sun Rise</td>
+          <td style="{td_val}">{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
+      <tr><td style="{td_key}">Sun Set</td>
+          <td style="{td_val}">{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
+    </table>
+  </td>
 </tr>
 </table>
 
-<table width="100%">
-<tr>
-  <td align="left" width="300" height="300">{rasi_chart}</td>
-  <td align="right" width="300" height="300">{nav_chart}</td>
+<!-- Charts + Longitude: 2×2 grid matching Arunram.html -->
+<table>
+<tr valign="top">
+  <td align="left" width="{chart_w}" height="{chart_w}" style="padding-right:12px;">{rasi_chart}</td>
+  <td align="left" width="{chart_w}" height="{chart_w}">{nav_chart}</td>
 </tr>
-<tr>
-  <td align="left" width="300" height="300">{bhava_chart}</td>
-  <td align="right" width="300" height="300">
-    <table style="{ts}">
-      <tr><th></th><th colspan="2">Longitude</th><th>Nakshatra</th><th>Pada</th></tr>
+<tr valign="top">
+  <td align="left" width="{chart_w}" style="padding-right:12px;padding-top:10px;">{bhava_chart}</td>
+  <td valign="top" style="padding-top:10px;">
+    <table style="border-collapse:collapse;">
+      <tr>
+        <th style="{td_hdr}"></th>
+        <th style="{td_hdr}" colspan="2">Longitude</th>
+        <th style="{td_hdr}">Nakshatra</th>
+        <th style="{td_hdr}">Pada</th>
+      </tr>
       {long_rows}
     </table>
   </td>
@@ -1210,46 +1244,46 @@ def generate_pdf(result) -> bytes:
 
 _CSS = """
 <style>
-/* ── Sidebar: deep cosmic dark with saffron accents ── */
+/* ── Sidebar: charcoal ── */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f0500 0%, #1e0a00 60%, #0f0500 100%) !important;
-    border-right: 2px solid #b8720a !important;
+    background: #2D2D2D !important;
+    border-right: 2px solid #14B8A6 !important;
 }
 section[data-testid="stSidebar"] .stMarkdown,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span,
 section[data-testid="stSidebar"] div {
-    color: #f5d78e !important;
+    color: #E5E5E5 !important;
 }
 section[data-testid="stSidebar"] h1,
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
-    color: #ffd700 !important;
+    color: #14B8A6 !important;
 }
 section[data-testid="stSidebar"] input,
 section[data-testid="stSidebar"] textarea {
-    background-color: #2a0e00 !important;
-    border: 1px solid #b8720a !important;
-    color: #fff8e7 !important;
+    background-color: #3A3A3A !important;
+    border: 1px solid #14B8A6 !important;
+    color: #E5E5E5 !important;
     border-radius: 6px !important;
 }
 section[data-testid="stSidebar"] .stSelectbox > div > div,
 section[data-testid="stSidebar"] .stDateInput > div > div,
 section[data-testid="stSidebar"] .stTimeInput > div > div {
-    background-color: #2a0e00 !important;
-    border: 1px solid #b8720a !important;
-    color: #fff8e7 !important;
+    background-color: #3A3A3A !important;
+    border: 1px solid #14B8A6 !important;
+    color: #E5E5E5 !important;
     border-radius: 6px !important;
 }
 section[data-testid="stSidebar"] hr {
-    border-color: #6b3800 !important;
+    border-color: #4A4A4A !important;
     margin: 0.6rem 0 !important;
 }
 /* Sidebar section dividers */
 .sb-section {
-    background: rgba(184,114,10,0.12);
-    border-left: 3px solid #b8720a;
+    background: rgba(20,184,166,0.10);
+    border-left: 3px solid #14B8A6;
     border-radius: 0 6px 6px 0;
     padding: 8px 10px 8px 12px;
     margin: 8px 0 4px 0;
@@ -1259,172 +1293,91 @@ section[data-testid="stSidebar"] hr {
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: #ffd700 !important;
+    color: #14B8A6 !important;
 }
 
-/* ── Main area ── */
+/* ── Main area: white ── */
 .main .block-container {
-    background-color: #fffcf5;
+    background-color: #FFFFFF;
     padding-top: 1rem !important;
 }
 
 /* ── Page header banner ── */
 .bhagya-header {
-    background: linear-gradient(135deg, #6b0000 0%, #a85200 50%, #6b0000 100%);
-    color: #fff8e7;
+    background: #2D2D2D;
+    color: #E5E5E5;
     padding: 1.2rem 2rem;
     border-radius: 12px;
     text-align: center;
     margin-bottom: 1.2rem;
-    box-shadow: 0 4px 15px rgba(168,82,0,0.35);
+    border: 1px solid #E4E4E7;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 .bhagya-header h1 {
     font-size: 1.8rem;
     letter-spacing: 6px;
     margin: 0 0 0.2rem 0;
-    color: #ffd700;
-    text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+    color: #14B8A6;
 }
 .bhagya-header .subhead {
     font-size: 0.85rem;
-    color: #f5d78e;
+    color: #E5E5E5;
     letter-spacing: 2px;
 }
-
-/* ── Birth info card ── */
-.birth-card {
-    background: linear-gradient(135deg, #fff9ee, #fff3d6);
-    border: 1px solid #e0a040;
-    border-radius: 10px;
-    padding: 1rem 1.4rem;
-    margin-bottom: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 2rem;
-    box-shadow: 0 2px 8px rgba(160,80,0,0.1);
-}
-.birth-item { font-size: 0.9rem; color: #3a1a00; }
-.birth-item b { color: #7a3500; }
 
 /* ── Section headings ── */
 .section-head {
     font-size: 1rem;
     font-weight: 700;
-    color: #7a3500;
-    border-bottom: 2px solid #e0a040;
+    color: #14B8A6;
+    border-bottom: 2px solid #14B8A6;
     padding-bottom: 0.3rem;
     margin: 1.2rem 0 0.7rem 0;
     letter-spacing: 1px;
     text-transform: uppercase;
 }
 
-/* ── Metric cards ── */
-[data-testid="metric-container"] {
-    background: #fff9ee !important;
-    border: 1px solid #e0c070 !important;
-    border-radius: 10px !important;
-    padding: 10px 14px !important;
-    box-shadow: 0 2px 6px rgba(160,100,0,0.08) !important;
-}
-[data-testid="metric-container"] label {
-    color: #8a5000 !important;
-    font-size: 0.78rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    color: #2a0e00 !important;
-    font-size: 1rem !important;
-}
-
 /* ── Primary button ── */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #b8720a, #7a3500) !important;
+    background: #14B8A6 !important;
     border: none !important;
-    color: #fff8e7 !important;
+    color: #FFFFFF !important;
     font-weight: 700 !important;
     letter-spacing: 1.5px !important;
     border-radius: 8px !important;
     padding: 0.6rem 1rem !important;
-    box-shadow: 0 3px 10px rgba(120,50,0,0.4) !important;
+    box-shadow: 0 2px 6px rgba(20,184,166,0.30) !important;
     transition: all 0.2s !important;
 }
 .stButton > button[kind="primary"]:hover {
-    background: linear-gradient(135deg, #d4860c, #a04800) !important;
-    box-shadow: 0 4px 14px rgba(120,50,0,0.55) !important;
+    background: #0e9688 !important;
+    box-shadow: 0 4px 12px rgba(20,184,166,0.45) !important;
     transform: translateY(-1px) !important;
 }
 
-/* ── Tabs ── */
-.stTabs [data-baseweb="tab-list"] {
-    background: #fff3d6 !important;
-    border-radius: 8px !important;
-    padding: 4px !important;
-    gap: 4px !important;
-}
-.stTabs [data-baseweb="tab"] {
-    border-radius: 6px !important;
-    color: #7a3500 !important;
+/* ── Download buttons ── */
+.stDownloadButton > button {
+    background: #F7F7F7 !important;
+    border: 1px solid #14B8A6 !important;
+    color: #14B8A6 !important;
     font-weight: 600 !important;
+    border-radius: 8px !important;
 }
-.stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #b8720a, #7a3500) !important;
-    color: #fff8e7 !important;
+.stDownloadButton > button:hover {
+    background: #14B8A6 !important;
+    color: #FFFFFF !important;
 }
 
 /* ── Dataframes ── */
 .stDataFrame {
-    border: 1px solid #e0c070 !important;
+    border: 1px solid #E4E4E7 !important;
     border-radius: 8px !important;
 }
 
 /* ── Divider ── */
-hr { border-color: #e0c070 !important; }
-
-/* ── South Indian chart cells ── */
-.si-chart td {
-    border: 2px solid #7a3500 !important;
-    background: #fffcf5 !important;
-    font-family: Georgia, serif !important;
-    font-size: 12px !important;
-    color: #2a0e00 !important;
-}
-.si-chart th {
-    border: 2px solid #7a3500 !important;
-    background: #fff3d6 !important;
-    color: #7a3500 !important;
-    font-size: 14px !important;
-}
+hr { border-color: #E4E4E7 !important; }
 </style>
 """
-
-
-def _chart_html_styled(by_sign, label):
-    """South Indian chart with warm saffron styling."""
-    cell_h, cell_w = 88, 88
-    cs = (f"width:{cell_w}px;height:{cell_h}px;vertical-align:top;"
-          f"padding:5px;font-size:12px;font-family:Georgia,serif;"
-          f"color:#2a0e00;border:2px solid #7a3500;background:#fffcf5;")
-    centre_s = (f"width:{cell_w*2}px;height:{cell_h*2}px;text-align:center;"
-                f"vertical-align:middle;border:2px solid #7a3500;"
-                f"background:linear-gradient(135deg,#fff3d6,#ffe8b0);"
-                f"color:#7a3500;font-weight:bold;font-size:14px;"
-                f"font-family:Georgia,serif;letter-spacing:2px;")
-
-    def cell(sign):
-        content = "<br>".join(by_sign.get(sign, []))
-        return f'<td style="{cs}">{content}</td>'
-
-    rows = (
-        f"<tr>{cell(11)}{cell(0)}{cell(1)}{cell(2)}</tr>"
-        f"<tr>{cell(10)}<th rowspan='2' colspan='2' style='{centre_s}'>{label}</th>{cell(3)}</tr>"
-        f"<tr>{cell(9)}{cell(4)}</tr>"
-        f"<tr>{cell(8)}{cell(7)}{cell(6)}{cell(5)}</tr>"
-    )
-    tbl_s = (f"border-collapse:collapse;border:3px solid #7a3500;"
-             f"width:{cell_w*4+10}px;box-shadow:0 3px 12px rgba(120,50,0,0.2);")
-    return f'<table style="{tbl_s}">{rows}</table>'
 
 
 # ── Sidebar helpers ───────────────────────────────────────────────────────────
@@ -1464,8 +1417,8 @@ def main():
         <div style="text-align:center;padding:1rem 0 0.5rem;">
           <div style="font-size:2.2rem;">🪐</div>
           <div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;
-                      color:#ffd700;">BHAGYAGRAHA</div>
-          <div style="font-size:0.72rem;color:#c8a060;letter-spacing:1px;">
+                      color:#14B8A6;">BHAGYAGRAHA</div>
+          <div style="font-size:0.72rem;color:#A0A0A0;letter-spacing:1px;">
             BIRTH DATA</div>
         </div>
         """, unsafe_allow_html=True)
@@ -1583,11 +1536,11 @@ def main():
 
     if "result" not in st.session_state:
         st.markdown("""
-        <div style="text-align:center;padding:4rem 2rem;color:#7a3500;">
+        <div style="text-align:center;padding:4rem 2rem;color:#2D2D2D;">
           <div style="font-size:4rem;margin-bottom:1rem;">🪐</div>
           <div style="font-size:1.3rem;font-weight:700;letter-spacing:2px;
-                      margin-bottom:0.5rem;">Welcome to Bhagyagraha</div>
-          <div style="font-size:0.95rem;color:#a06030;">
+                      margin-bottom:0.5rem;color:#14B8A6;">Welcome to Bhagyagraha</div>
+          <div style="font-size:0.95rem;color:#555555;">
             Enter birth details in the sidebar and click
             <b>Calculate Horoscope</b> to begin.
           </div>
@@ -1626,8 +1579,8 @@ def main():
 
     # ── Footer ──
     st.markdown("""
-    <hr style="margin-top:2rem;border-color:#e0c070;">
-    <div style="text-align:center;font-size:0.75rem;color:#b08040;padding:0.5rem 0 1rem;">
+    <hr style="margin-top:2rem;border-color:#E4E4E7;">
+    <div style="text-align:center;font-size:0.75rem;color:#888888;padding:0.5rem 0 1rem;">
       Bhagyagraha &nbsp;·&nbsp; Hindu Horoscope Calculator &nbsp;·&nbsp;
       Calculations based on Lahiri Ayanamsa (sidereal)
     </div>

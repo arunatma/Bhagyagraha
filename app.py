@@ -545,18 +545,13 @@ def _planets_by_bhava_r(bhava_positions, planet_retrograde):
     return dict(by_sign)
 
 
-# ── HTML Report (Tab 2) ────────────────────────────────────────────────────────
-
-def generate_html_report(result):
-    """Generate a self-contained HTML report matching the C program's style."""
+def generate_single_page_html(result):
+    """Compact single-page HTML: birth data + 3 charts + longitude table only.
+    Matches the style of the original C program's Arunram.html output."""
     inp   = result["input"]
     cal   = result["calendar"]
     pd    = result["planet_degs"]
     nav   = result["navamsa_positions"]
-    house = result["house_positions"]
-    shad  = result["shad"]
-    bb    = result["bhava_bala"]
-    mut   = result["mutual"]
 
     name      = inp["name"]
     birthplace = inp["birthplace"]
@@ -567,11 +562,9 @@ def generate_html_report(result):
     lon_m     = int((inp["long_degs"] - lon_d) * 60)
     lat_dir   = inp["lat_dirn"]
     lon_dir   = inp["long_dirn"]
+    sunrise   = cal["sunrise"]
+    sunset    = cal["sunset"]
 
-    sunrise = cal["sunrise"]
-    sunset  = cal["sunset"]
-
-    # Chart data
     retro = result.get("planet_retrograde", [False] * 12)
     rasi_by_sign  = _planets_by_sign_r(pd, retro)
     nav_by_sign   = _planets_by_navamsa_r(nav, retro)
@@ -581,214 +574,74 @@ def generate_html_report(result):
     nav_chart   = _make_south_indian_chart_html(nav_by_sign,   "NAVAMSA")
     bhava_chart = _make_south_indian_chart_html(bhava_by_sign, "BHAVA")
 
-    # Longitude table rows
     long_rows = ""
     for i, nm in enumerate(GRAHA_NAMES):
         degs = pd[i]
         d    = int(degs)
         m    = int((degs - d) * 60)
         nak, pada = _nakshatra_pada(degs)
-        retro_mark = "<b style='color:#c00'>(R)</b>" if retro[i] else ""
+        r_mark = "<b>(R)</b>" if retro[i] else ""
         long_rows += (
-            f"<tr><td><b>{nm}</b>{retro_mark}</td>"
+            f"<tr><td><b>{nm}</b>{r_mark}</td>"
             f"<td align='right'>{d}&deg;</td>"
             f"<td align='right'>{m}&prime;</td>"
             f"<td>{NAKSHATRA[nak]}</td>"
             f"<td>{pada}</td></tr>\n"
         )
 
-    # Shadbala table
-    shad_rows = ""
-    shad_components = [
-        ("Sthana Bala",   "sthana"),
-        ("Kala Bala",     "kala"),
-        ("Dig Bala",      "dig"),
-        ("Naisargika",    "naisa"),
-        ("Chesta Bala",   "chesta"),
-        ("Drik (+)",      "ben_drig"),
-        ("Drik (-)",      "mal_drig"),
-    ]
-    for label, key in shad_components:
-        vals = shad[key]
-        cells = "".join(f"<td align='right'>{v:.2f}</td>" for v in vals)
-        shad_rows += f"<tr><td><b>{label}</b></td>{cells}</tr>\n"
-    total_cells = "".join(f"<td align='right'><b>{v:.2f}</b></td>" for v in shad["total"])
-    shad_rows += f"<tr style='border-top:2px solid #000'><td><b>TOTAL</b></td>{total_cells}</tr>\n"
-    rel_cells = "".join(f"<td align='right'>{v:.2f}</td>" for v in shad["relative"])
-    shad_rows += f"<tr><td>Relative</td>{rel_cells}</tr>\n"
+    ts = "border-collapse:collapse;"
 
-    # Bhava bala table
-    bb_rows = ""
-    bb_components = [
-        ("Bhavaswami",  "swami"),
-        ("Dig Bala",    "dig"),
-        ("Drig Bala",   "drig"),
-        ("Spl Aspect",  "spl_drig"),
-        ("Occ Str",     "ostr"),
-    ]
-    for label, key in bb_components:
-        vals = bb[key]
-        cells = "".join(f"<td align='right'>{v:.2f}</td>" for v in vals)
-        bb_rows += f"<tr><td><b>{label}</b></td>{cells}</tr>\n"
-    tot_cells = "".join(f"<td align='right'><b>{v:.2f}</b></td>" for v in bb["total"])
-    bb_rows += f"<tr style='border-top:2px solid #000'><td><b>TOTAL</b></td>{tot_cells}</tr>\n"
-    rel_bb = "".join(f"<td align='right'>{v:.2f}</td>" for v in bb["relative"])
-    bb_rows += f"<tr><td>Relative</td>{rel_bb}</tr>\n"
+    return f"""<!DOCTYPE html>
+<html>
+<body bgcolor="honeydew">
+<table height="30" align="center">
+<tr><th align="center"><font size="5" color="RED">BHAGYAGRAHA</font></th></tr>
+</table>
 
-    # Mutual disposition
-    pnames = mut["planet_names"]
-    mut_header = "<tr><th></th>" + "".join(f"<th>{p}</th>" for p in pnames) + "</tr>"
-    rasi_rows = ""
-    for i, row in enumerate(mut["rasi"]):
-        cells = "".join(f"<td align='center'>{v}</td>" for v in row)
-        rasi_rows += f"<tr><td><b>{pnames[i]}</b></td>{cells}</tr>\n"
-    nav_rows = ""
-    for i, row in enumerate(mut["navamsa"]):
-        cells = "".join(f"<td align='center'>{v}</td>" for v in row)
-        nav_rows += f"<tr><td><b>{pnames[i]}</b></td>{cells}</tr>\n"
-
-    shad_header = "<tr><th>Bala</th>" + "".join(f"<th>{p}</th>" for p in SHAD_LABELS) + "</tr>"
-    bb_hd_cells = "".join(f"<th>H{i+1}</th>" for i in range(12))
-    bb_header   = f"<tr><th>Bala</th>{bb_hd_cells}</tr>"
-
-    ts = ("border-collapse:collapse;width:100%;border:1px solid #ccc;"
-          "font-size:12px;margin-bottom:10px;")
-    tds = "border:1px solid #ccc;padding:3px 6px;"
-
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Bhagyagraha — {name}</title>
-<style>
-  body {{ font-family: Arial, sans-serif; background: #f0fff0; margin: 20px; font-size:13px; }}
-  h1   {{ text-align:center; color: #8B0000; letter-spacing: 4px; }}
-  h2   {{ color: #444; border-bottom: 1px solid #888; margin-top: 20px; font-size:14px; }}
-  table {{ border-collapse:collapse; }}
-  td, th {{ {tds} }}
-  .charts {{ display:flex; gap:20px; flex-wrap:wrap; margin: 10px 0; }}
-  .chart-box {{ text-align:center; }}
-  .chart-label {{ font-weight:bold; margin-bottom:4px; }}
-  @media print {{
-    .no-print {{ display:none; }}
-    body {{ margin:0; background:white; }}
-  }}
-</style>
-</head>
-<body>
-<h1>&#9654; B H A G Y A G R A H A &#9664;</h1>
-
-<div class="no-print" style="text-align:right;margin-bottom:10px;">
-  <button onclick="window.print()"
-    style="padding:8px 18px;background:#8B0000;color:white;border:none;
-           border-radius:4px;cursor:pointer;font-size:13px;">
-    &#128438; Print / Save as PDF
-  </button>
-</div>
-
-<!-- ── Personal Data ── -->
-<table style="{ts}width:100%">
+<table width="100%">
 <tr>
-  <td style="vertical-align:top;width:50%">
-    <table style="{ts}">
-      <tr><td><b>Name</b></td><td>{name}</td></tr>
-      <tr><td><b>Date of Birth</b></td>
-          <td>{in_dt.day}/{in_dt.month}/{in_dt.year} &mdash; {cal["weekday"]}</td></tr>
-      <tr><td><b>Time of Birth</b></td>
-          <td>{in_dt.hour}H-{in_dt.minute:02d}M (Local Std Time)</td></tr>
-      <tr><td><b>Place of Birth</b></td><td>{birthplace}</td></tr>
-      <tr><td><b>Lat-Long</b></td>
-          <td>{lat_d}&deg;-{lat_m}&prime;({lat_dir})&nbsp;
-              {lon_d}&deg;-{lon_m}&prime;({lon_dir})</td></tr>
-      <tr><td><b>Janma Nakshatra</b></td>
-          <td>{cal["janma_nakshatra"]} Pada-{cal["janma_pada"]}</td></tr>
-      <tr><td><b>Paksham</b></td><td>{cal["paksham"]}</td></tr>
-      <tr><td><b>Balance of {cal["dasa_lord"]} dasa</b></td>
-          <td>Y:&nbsp;{cal["dasa_y"]}&nbsp; M:&nbsp;{cal["dasa_m"]}&nbsp; D:&nbsp;{cal["dasa_d"]}</td></tr>
-    </table>
-  </td>
-  <td style="vertical-align:top;width:50%">
-    <table style="{ts}">
-      <tr><td><b>Thithi</b></td><td>{cal["thithi"]}</td></tr>
-      <tr><td><b>Yogam</b></td><td>{cal["yogam"]}</td></tr>
-      <tr><td><b>Karanam</b></td><td>{cal["karanam"]}</td></tr>
-      <tr><td><b>Tamil Date</b></td>
-          <td>{cal["tamil_day"]} {cal["tamil_month"]} {cal["tamil_year"]}</td></tr>
-      <tr><td><b>Saka Date</b></td>
-          <td>{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>
-      <tr><td><b>Kali Year</b></td><td>{cal["kali_year"]}</td></tr>
-      <tr><td><b>Sun Rise</b></td>
-          <td>{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
-      <tr><td><b>Sun Set</b></td>
-          <td>{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
-    </table>
-  </td>
+  <td><table>
+    <tr><td><b>Name</b></td><td>{name}</td></tr>
+    <tr><td><b>Date of Birth</b></td><td>{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year} &mdash; {cal["weekday"]}</td></tr>
+    <tr><td><b>Time of Birth</b></td><td>{in_dt.hour}H-{in_dt.minute:02d}M (Local Std Time)</td></tr>
+    <tr><td><b>Place of Birth</b></td><td>{birthplace}</td></tr>
+    <tr><td><b>Lat-Long</b></td><td>{lat_d}&deg;-{lat_m:02d}&prime;({lat_dir})&nbsp;{lon_d}&deg;-{lon_m:02d}&prime;({lon_dir})</td></tr>
+    <tr><td><b>Janma Nakshatra</b></td><td>{cal["janma_nakshatra"]} Pada-{cal["janma_pada"]}</td></tr>
+    <tr><td><b>Paksham</b></td><td>{cal["paksham"]}</td></tr>
+    <tr><td><b>Balance of {cal["dasa_lord"]} dasa</b></td>
+        <td>Y:&nbsp;{cal["dasa_y"]}&nbsp; M:&nbsp;{cal["dasa_m"]}&nbsp; D:&nbsp;{cal["dasa_d"]}</td></tr>
+  </table></td>
+  <td><table>
+    <tr><td><b>Thithi</b></td><td>{cal["thithi"]}</td></tr>
+    <tr><td><b>Yogam</b></td><td>{cal["yogam"]}</td></tr>
+    <tr><td><b>Karanam</b></td><td>{cal["karanam"]}</td></tr>
+    <tr><td><b>Tamil Date</b></td><td>{cal["tamil_day"]} {cal["tamil_month"]} {cal["tamil_year"]}</td></tr>
+    <tr><td><b>Saka Date</b></td><td>{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>
+    <tr><td><b>Kali Year</b></td><td>{cal["kali_year"]}</td></tr>
+    <tr><td><b>Sun Rise</b></td><td>{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
+    <tr><td><b>Sun Set</b></td><td>{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
+  </table></td>
 </tr>
 </table>
 
-<!-- ── Charts + Longitude Table ── -->
-<h2>Charts &amp; Planetary Positions</h2>
-<table style="width:100%;border:none">
+<table width="100%">
 <tr>
-  <td style="border:none;width:48%;vertical-align:top">
-    <div class="chart-label" style="text-align:center">RASI</div>
-    {rasi_chart}
-  </td>
-  <td style="border:none;width:4%"></td>
-  <td style="border:none;width:48%;vertical-align:top">
-    <div class="chart-label" style="text-align:center">NAVAMSA</div>
-    {nav_chart}
-  </td>
+  <td align="left" width="300" height="300">{rasi_chart}</td>
+  <td align="right" width="300" height="300">{nav_chart}</td>
 </tr>
-<tr><td colspan="3" style="border:none;height:15px"></td></tr>
 <tr>
-  <td style="border:none;vertical-align:top">
-    <div class="chart-label" style="text-align:center">BHAVA</div>
-    {bhava_chart}
-  </td>
-  <td style="border:none"></td>
-  <td style="border:none;vertical-align:top">
+  <td align="left" width="300" height="300">{bhava_chart}</td>
+  <td align="right" width="300" height="300">
     <table style="{ts}">
-      <tr>
-        <th></th><th colspan="2">Longitude</th>
-        <th>Nakshatra</th><th>Pada</th>
-      </tr>
+      <tr><th></th><th colspan="2">Longitude</th><th>Nakshatra</th><th>Pada</th></tr>
       {long_rows}
     </table>
   </td>
 </tr>
 </table>
 
-<!-- ── Shadbala ── -->
-<h2>Shadbala (Planetary Strength)</h2>
-<table style="{ts}">
-{shad_header}
-{shad_rows}
-</table>
-
-<!-- ── Bhava Bala ── -->
-<h2>Bhava Bala (House Strength)</h2>
-<table style="{ts}">
-{bb_header}
-{bb_rows}
-</table>
-
-<!-- ── Mutual Disposition ── -->
-<h2>Mutual Disposition &mdash; Rasi</h2>
-<table style="{ts}">
-{mut_header}
-{rasi_rows}
-</table>
-
-<h2>Mutual Disposition &mdash; Navamsa</h2>
-<table style="{ts}">
-{mut_header}
-{nav_rows}
-</table>
-
 </body>
 </html>"""
-    return html
 
 
 # ── PDF generation via ReportLab ──────────────────────────────────────────────
@@ -1574,201 +1427,6 @@ def _chart_html_styled(by_sign, label):
     return f'<table style="{tbl_s}">{rows}</table>'
 
 
-# ── Streamlit: Tab 1 — Horoscope ──────────────────────────────────────────────
-
-def show_horoscope_tab(result):
-    import pandas as pd_lib
-
-    inp   = result["input"]
-    cal   = result["calendar"]
-    pd_   = result["planet_degs"]
-    nav   = result["navamsa_positions"]
-    shad  = result["shad"]
-    bb    = result["bhava_bala"]
-    mut   = result["mutual"]
-    house = result["house_positions"]
-    in_dt = inp["in_datetime"]
-
-    # ── Birth info card ──
-    st.markdown(f"""
-    <div class="birth-card">
-      <div class="birth-item"><b>Name</b><br>{inp["name"]}</div>
-      <div class="birth-item"><b>Date of Birth</b><br>
-        {in_dt.day:02d} / {in_dt.month:02d} / {in_dt.year} &nbsp;({cal["weekday"]})</div>
-      <div class="birth-item"><b>Time</b><br>
-        {in_dt.hour:02d}:{in_dt.minute:02d} &nbsp;LST</div>
-      <div class="birth-item"><b>Place</b><br>{inp["birthplace"]}</div>
-      <div class="birth-item"><b>Coordinates</b><br>
-        {inp["lat_degs"]:.4f}&nbsp;{inp["lat_dirn"]} &nbsp;/&nbsp;
-        {inp["long_degs"]:.4f}&nbsp;{inp["long_dirn"]}</div>
-      <div class="birth-item"><b>Sunrise / Sunset</b><br>
-        {cal["sunrise"].strftime("%H:%M")} &nbsp;/&nbsp; {cal["sunset"].strftime("%H:%M")}</div>
-      <div class="birth-item"><b>Janma Nakshatra</b><br>
-        {cal["janma_nakshatra"]} &nbsp;Pada&nbsp;{cal["janma_pada"]}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Calendar ──
-    st.markdown('<div class="section-head">Panchangam</div>', unsafe_allow_html=True)
-    r1 = st.columns(4)
-    r1[0].metric("Paksham",  cal["paksham"])
-    r1[1].metric("Thithi",   cal["thithi"])
-    r1[2].metric("Yogam",    cal["yogam"])
-    r1[3].metric("Karanam",  cal["karanam"])
-
-    r2 = st.columns(4)
-    r2[0].metric("Tamil Date",
-                 f"{cal['tamil_day']} {cal['tamil_month']}\n{cal['tamil_year']}")
-    r2[1].metric("Saka Date",
-                 f"{cal['saka_day']} {cal['saka_month']}\n{cal['saka_year']}")
-    r2[2].metric("Kali Year", str(cal["kali_year"]))
-    r2[3].metric(f"{cal['dasa_lord']} Dasa balance",
-                 f"Y {cal['dasa_y']}  M {cal['dasa_m']}  D {cal['dasa_d']}")
-
-    # ── Charts ──
-    st.markdown('<div class="section-head">Charts</div>', unsafe_allow_html=True)
-    retro = result.get("planet_retrograde", [False] * 12)
-    rasi_by_sign  = _planets_by_sign_r(pd_, retro)
-    nav_by_sign   = _planets_by_navamsa_r(nav, retro)
-    bhava_by_sign = _planets_by_bhava_r(result["bhava_positions"], retro)
-
-    ch1, ch2, ch3 = st.columns(3)
-    with ch1:
-        st.markdown("<p style='text-align:center;font-weight:700;"
-                    "color:#7a3500;letter-spacing:2px;'>RASI</p>",
-                    unsafe_allow_html=True)
-        components.html(_chart_html_styled(rasi_by_sign, "RASI"), height=430)
-    with ch2:
-        st.markdown("<p style='text-align:center;font-weight:700;"
-                    "color:#7a3500;letter-spacing:2px;'>NAVAMSA</p>",
-                    unsafe_allow_html=True)
-        components.html(_chart_html_styled(nav_by_sign, "NAVAMSA"), height=430)
-    with ch3:
-        st.markdown("<p style='text-align:center;font-weight:700;"
-                    "color:#7a3500;letter-spacing:2px;'>BHAVA</p>",
-                    unsafe_allow_html=True)
-        components.html(_chart_html_styled(bhava_by_sign, "BHAVA"), height=430)
-
-    # ── Nirayana Longitudes ──
-    st.markdown('<div class="section-head">Nirayana Longitudes</div>',
-                unsafe_allow_html=True)
-    rows = []
-    for i, nm in enumerate(GRAHA_NAMES):
-        degs = pd_[i]
-        sign = int(degs // 30)
-        d    = int(degs)
-        m    = int((degs - d) * 60)
-        nak, pada = _nakshatra_pada(degs)
-        label = nm + ("(R)" if retro[i] else "")
-        rows.append({
-            "Graha":     label,
-            "Long":      f"{d}\u00b0 {m:02d}\u2032",
-            "Rasi":      RASI_NAMES[sign],
-            "Nakshatra": NAKSHATRA[nak],
-            "Pada":      pada,
-            "Navamsa":   RASI_NAMES[int(nav[i])],
-        })
-    st.dataframe(pd_lib.DataFrame(rows), hide_index=True, use_container_width=True)
-
-    # ── Bhava Cusps ──
-    st.markdown('<div class="section-head">Bhava Cusps</div>', unsafe_allow_html=True)
-    house_rows = []
-    for i in range(12):
-        degs = house[i]
-        sign = int(degs // 30)
-        d    = int(degs)
-        m    = int((degs - d) * 60)
-        house_rows.append({
-            "Bhava": i + 1,
-            "Long":  f"{d}\u00b0 {m:02d}\u2032",
-            "Rasi":  RASI_NAMES[sign],
-        })
-    st.dataframe(pd_lib.DataFrame(house_rows), hide_index=True, use_container_width=True)
-
-    # ── Shadbala ──
-    st.markdown('<div class="section-head">Shadbala — Planetary Strength</div>',
-                unsafe_allow_html=True)
-    shad_components = [
-        ("Sthana Bala",   "sthana"),
-        ("Kala Bala",     "kala"),
-        ("Dig Bala",      "dig"),
-        ("Naisargika",    "naisa"),
-        ("Chesta Bala",   "chesta"),
-        ("Drik (+)",      "ben_drig"),
-        ("Drik (-)",      "mal_drig"),
-        ("TOTAL",         "total"),
-        ("Min Required",  "min_required"),
-        ("Relative",      "relative"),
-        ("Ishta Bala",    "ishta"),
-        ("Kashta Bala",   "kashta"),
-    ]
-    shad_data = {"Bala": [lbl for lbl, _ in shad_components]}
-    for j, planet in enumerate(SHAD_LABELS):
-        shad_data[planet] = [round(shad[key][j], 2) for _, key in shad_components]
-    st.dataframe(pd_lib.DataFrame(shad_data), hide_index=True, use_container_width=True)
-
-    # ── Bhava Bala ──
-    st.markdown('<div class="section-head">Bhava Bala — House Strength</div>',
-                unsafe_allow_html=True)
-    bb_components = [
-        ("Swami Bala", "swami"),
-        ("Dig Bala",   "dig"),
-        ("Drig Bala",  "drig"),
-        ("Spl Drig",   "spl_drig"),
-        ("Occ Str",    "ostr"),
-        ("TOTAL",      "total"),
-        ("Relative",   "relative"),
-    ]
-    bb_data = {"Bala": [lbl for lbl, _ in bb_components]}
-    for h in range(12):
-        bb_data[f"H{h+1}"] = [round(bb[key][h], 2) for _, key in bb_components]
-    st.dataframe(pd_lib.DataFrame(bb_data), hide_index=True, use_container_width=True)
-
-    # ── Mutual Disposition ──
-    st.markdown('<div class="section-head">Mutual Disposition</div>',
-                unsafe_allow_html=True)
-    pnames = mut["planet_names"]
-    mrasi  = pd_lib.DataFrame(mut["rasi"],    index=pnames, columns=pnames)
-    mnav   = pd_lib.DataFrame(mut["navamsa"], index=pnames, columns=pnames)
-    mrc, mnc = st.columns(2)
-    with mrc:
-        st.caption("Rasi")
-        st.dataframe(mrasi, use_container_width=True)
-    with mnc:
-        st.caption("Navamsa")
-        st.dataframe(mnav, use_container_width=True)
-
-
-# ── Streamlit: Tab 2 — HTML Report ────────────────────────────────────────────
-
-def show_html_tab(result):
-    html = generate_html_report(result)
-
-    col1, col2, col3 = st.columns([1, 1, 3])
-    with col1:
-        st.download_button(
-            label="⬇ Download HTML",
-            data=html.encode("utf-8"),
-            file_name=f"{result['input']['name']}_horoscope.html",
-            mime="text/html",
-            use_container_width=True,
-        )
-    with col2:
-        try:
-            pdf_bytes = generate_pdf(result)
-            st.download_button(
-                label="⬇ Download PDF",
-                data=pdf_bytes,
-                file_name=f"{result['input']['name']}_horoscope.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        except Exception as _pdf_err:
-            st.warning(f"PDF unavailable: {_pdf_err}")
-
-    components.html(html, height=1150, scrolling=True)
-
-
 # ── Sidebar helpers ───────────────────────────────────────────────────────────
 
 def _sb_section(icon, title):
@@ -1939,12 +1597,32 @@ def main():
 
     result = st.session_state.result
 
-    # ── Tabs ──
-    tab1, tab2 = st.tabs(["📊  Horoscope", "🌐  HTML Report"])
-    with tab1:
-        show_horoscope_tab(result)
-    with tab2:
-        show_html_tab(result)
+    # ── Download buttons + single-page HTML display ──
+    single_html = generate_single_page_html(result)
+
+    col1, col2, col3 = st.columns([1, 1, 4])
+    with col1:
+        st.download_button(
+            label="⬇ Single Page Download",
+            data=single_html.encode("utf-8"),
+            file_name=f"{result['input']['name']}_horoscope.html",
+            mime="text/html",
+            use_container_width=True,
+        )
+    with col2:
+        try:
+            pdf_bytes = generate_pdf(result)
+            st.download_button(
+                label="⬇ Complete Download",
+                data=pdf_bytes,
+                file_name=f"{result['input']['name']}_horoscope.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except Exception as _pdf_err:
+            st.warning(f"PDF unavailable: {_pdf_err}")
+
+    components.html(single_html, height=750, scrolling=True)
 
     # ── Footer ──
     st.markdown("""

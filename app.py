@@ -130,24 +130,45 @@ CITIES = {
 
 # ── Timezone presets (seconds offset from GMT) ────────────────────────────────
 TIMEZONES = {
-    "IST  — India          (+5:30)":   5 * 3600 + 30 * 60,
-    "GMT  — London         (+0:00)":   0,
-    "CET  — Paris / Berlin (+1:00)":   1 * 3600,
-    "EET  — Athens / Cairo (+2:00)":   2 * 3600,
-    "MSK  — Moscow         (+3:00)":   3 * 3600,
-    "GST  — Dubai          (+4:00)":   4 * 3600,
-    "PKT  — Karachi        (+5:00)":   5 * 3600,
-    "BST  — Dhaka          (+6:00)":   6 * 3600,
-    "ICT  — Bangkok        (+7:00)":   7 * 3600,
-    "CST  — China          (+8:00)":   8 * 3600,
-    "JST  — Japan          (+9:00)":   9 * 3600,
-    "AEST — Sydney        (+10:00)":  10 * 3600,
-    "EST  — New York       (-5:00)":  -5 * 3600,
-    "CST  — Chicago        (-6:00)":  -6 * 3600,
-    "MST  — Denver         (-7:00)":  -7 * 3600,
-    "PST  — Los Angeles    (-8:00)":  -8 * 3600,
+    "IST  — India               (+05:30)": 5 * 3600 + 30 * 60,
+    "AoE  — Baker Island        (-12:00)": -12 * 3600,
+    "NUT  — Niue                (-11:00)": -11 * 3600,
+    "HST  — Hawaii              (-10:00)": -10 * 3600,
+    "MART — Marquesas           (-09:30)": -9 * 3600 - 30 * 60,
+    "AKST — Alaska              (-09:00)": -9 * 3600,
+    "PST  — Los Angeles         (-08:00)": -8 * 3600,
+    "MST  — Denver              (-07:00)": -7 * 3600,
+    "CST  — Chicago             (-06:00)": -6 * 3600,
+    "EST  — New York            (-05:00)": -5 * 3600,
+    "AST  — Puerto Rico         (-04:00)": -4 * 3600,
+    "NST  — Newfoundland        (-03:30)": -3 * 3600 - 30 * 60,
+    "BRT  — São Paulo           (-03:00)": -3 * 3600,
+    "GST  — South Georgia       (-02:00)": -2 * 3600,
+    "AZOT — Azores              (-01:00)": -1 * 3600,
+    "GMT  — London              (+00:00)": 0,
+    "CET  — Paris / Berlin      (+01:00)": 1 * 3600,
+    "EET  — Athens / Cairo      (+02:00)": 2 * 3600,
+    "MSK  — Moscow              (+03:00)": 3 * 3600,
+    "IRST — Tehran              (+03:30)": 3 * 3600 + 30 * 60,
+    "GST  — Dubai               (+04:00)": 4 * 3600,
+    "AFT  — Kabul               (+04:30)": 4 * 3600 + 30 * 60,
+    "PKT  — Karachi             (+05:00)": 5 * 3600,
+    "NPT  — Kathmandu           (+05:45)": 5 * 3600 + 45 * 60,
+    "BST  — Dhaka               (+06:00)": 6 * 3600,
+    "MMT  — Yangon              (+06:30)": 6 * 3600 + 30 * 60,
+    "ICT  — Bangkok             (+07:00)": 7 * 3600,
+    "CST  — China               (+08:00)": 8 * 3600,
+    "ACWST — Eucla              (+08:45)": 8 * 3600 + 45 * 60,
+    "JST  — Japan               (+09:00)": 9 * 3600,
+    "ACST — Adelaide            (+09:30)": 9 * 3600 + 30 * 60,
+    "AEST — Sydney              (+10:00)": 10 * 3600,
+    "LHST — Lord Howe Island    (+10:30)": 10 * 3600 + 30 * 60,
+    "SBT  — Solomon Islands     (+11:00)": 11 * 3600,
+    "NZST — New Zealand         (+12:00)": 12 * 3600,
+    "CHAST — Chatham Islands    (+12:45)": 12 * 3600 + 45 * 60,
+    "TOT  — Tonga               (+13:00)": 13 * 3600,
+    "LINT — Line Islands        (+14:00)": 14 * 3600,
 }
-
 # Vimsottari Dasa — lord and period (years) for each nakshatra (cycle of 9, repeated)
 DASA_LORDS = ["Ketu", "Venus", "Sun", "Moon", "Mars",
               "Rahu", "Jupiter", "Saturn", "Mercury"]
@@ -545,7 +566,7 @@ def _planets_by_bhava_r(bhava_positions, planet_retrograde):
 
 def generate_single_page_html(result):
     """Compact single-page HTML: birth data + 3 charts + longitude table.
-    Layout matches Arunram.html; styled with the contemporary teal palette."""
+    Layout styled with the contemporary teal palette."""
     inp   = result["input"]
     cal   = result["calendar"]
     pd    = result["planet_degs"]
@@ -612,7 +633,6 @@ def generate_single_page_html(result):
 <body>
 <h1>B H A G Y A G R A H A</h1>
 
-<!-- Birth data: 2-column layout matching Arunram.html -->
 <table width="100%" style="margin-bottom:14px;">
 <tr valign="top">
   <td>
@@ -652,7 +672,6 @@ def generate_single_page_html(result):
 </tr>
 </table>
 
-<!-- Charts + Longitude: 2×2 grid matching Arunram.html -->
 <table>
 <tr valign="top">
   <td align="left" width="{chart_w}" height="{chart_w}" style="padding-right:12px;">{rasi_chart}</td>
@@ -1406,8 +1425,7 @@ def main():
     # ── Page header ──
     st.markdown("""
     <div class="bhagya-header">
-      <h1>&#9654;&nbsp; B H A G Y A G R A H A &nbsp;&#9664;</h1>
-      <div class="subhead">Hindu Horoscope Calculator</div>
+      <h1>🪐BHAGYAGRAHA🪐</h1>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1415,27 +1433,20 @@ def main():
     with st.sidebar:
         st.markdown("""
         <div style="text-align:center;padding:1rem 0 0.5rem;">
-          <div style="font-size:2.2rem;">🪐</div>
           <div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;
                       color:#14B8A6;">BHAGYAGRAHA</div>
-          <div style="font-size:0.72rem;color:#A0A0A0;letter-spacing:1px;">
-            BIRTH DATA</div>
         </div>
         """, unsafe_allow_html=True)
 
         st.divider()
 
         # ── 1. Personal ──
-        _sb_section("👤", "Personal")
         name       = st.text_input("Full Name",      value="Sample Data",
                                    placeholder="Enter full name")
-        birthplace = st.text_input("Place of Birth", value="Salem",
-                                   placeholder="City, State")
 
         st.divider()
 
         # ── 2. Date & Time ──
-        _sb_section("📅", "Date & Time of Birth")
         birth_date = st.date_input(
             "Date of Birth",
             value=dt.date(1947, 8, 15),
@@ -1443,16 +1454,26 @@ def main():
             max_value=dt.date(2100, 12, 31),
             format="DD/MM/YYYY",
         )
-        birth_time = st.time_input(
-            "Time of Birth (Local Standard Time)",
-            value=dt.time(7, 11),
-            step=60,
+        
+
+        DEFAULT_TIME = "10:30"
+        # Initialize session state
+        if "time_input" not in st.session_state:
+            st.session_state.time_input = DEFAULT_TIME
+
+        # Validate previous value BEFORE creating widget
+        try:
+            dt.datetime.strptime(st.session_state.time_input, "%H:%M")
+        except:
+            st.session_state.time_input = DEFAULT_TIME
+
+        time_str = st.text_input(
+            "Time of Birth (Local Standard Time HH:MM)",
+            key="time_input"
         )
 
-        st.divider()
+        birth_time = dt.datetime.strptime(time_str, "%H:%M").time()
 
-        # ── 3. Timezone ──
-        _sb_section("🕐", "Timezone")
         tz_choice = st.selectbox(
             "Select timezone",
             options=list(TIMEZONES.keys()),
@@ -1463,27 +1484,17 @@ def main():
 
         st.divider()
 
-        # ── 4. Location ──
-        _sb_section("📍", "Location")
-        city_choice = st.selectbox(
-            "Preset city",
-            options=list(CITIES.keys()),
-            index=0,
-            label_visibility="collapsed",
-        )
+        # ── 3. Timezone ──
+        birthplace = st.text_input("Place of Birth", value="Salem",
+                                   placeholder="City, State")
 
-        city_data = CITIES.get(city_choice)
-        if city_data:
-            def_lat     = city_data["lat"]
-            def_lon     = city_data["lon"]
-            def_lat_dir = 0 if city_data["lat_dir"] == "N" else 1
-            def_lon_dir = 0 if city_data["lon_dir"] == "E" else 1
-        else:
-            def_lat, def_lon = 11.6643, 78.1460
-            def_lat_dir, def_lon_dir = 0, 0
+
+        # ── 4. Location ──
+        def_lat, def_lon = 11.6643, 78.1460
+        def_lat_dir, def_lon_dir = 0, 0
 
         # Use city_choice as part of the key so widgets reset when city changes
-        ck = city_choice  # cache key suffix
+        ck = 0  # cache key suffix
 
         cl, cd = st.columns([3, 1])
         lat_val = cl.number_input(
@@ -1506,7 +1517,7 @@ def main():
         st.divider()
 
         calculate = st.button(
-            "🔭  Calculate Horoscope",
+            "🔭  Calculate",
             use_container_width=True,
             type="primary",
         )
@@ -1542,7 +1553,7 @@ def main():
                       margin-bottom:0.5rem;color:#14B8A6;">Welcome to Bhagyagraha</div>
           <div style="font-size:0.95rem;color:#555555;">
             Enter birth details in the sidebar and click
-            <b>Calculate Horoscope</b> to begin.
+            <b>Calculate</b> to begin.
           </div>
         </div>
         """, unsafe_allow_html=True)

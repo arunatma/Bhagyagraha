@@ -180,9 +180,9 @@ class Neptune:
 
 
 # Total 12 grahas 8 + Moon + Lagn + Rahu + Ketu  (No Pluto!)
-graha_names = [
+GRAHA_NAMES = [
     "LAGN",
-    "SUN ",
+    "SUN",
     "MOON",
     "MARS",
     "MERC",
@@ -196,7 +196,7 @@ graha_names = [
 ]
 
 # Total 12 Month names
-saka_month_names = [
+SAKA_MONTH = [
     "Chaitra",
     "Vaisaka",
     "Jyaistha",
@@ -212,7 +212,7 @@ saka_month_names = [
 ]
 
 # Total 12 Month names
-tamil_month_names = [
+TAMIL_MONTH = [
     "Chittirai",
     "Vaikasi",
     "Aaani",
@@ -228,7 +228,7 @@ tamil_month_names = [
 ]
 
 # Total 12 Month names
-malayalam_month_names = [
+MALAYALAM_MONTH = [
     "(Mesham)",
     "(Rishabam)",
     "(Mithunam)",
@@ -244,7 +244,7 @@ malayalam_month_names = [
 ]
 
 # Total 60 tamil years
-tamil_year_names = [
+TAMIL_YEAR = [
     "Prabhava",
     "Vibhava",
     "Sukla",
@@ -308,7 +308,7 @@ tamil_year_names = [
 ]
 
 # Total 16 thithi (14 + amavasya and pournami)
-thithi_names = [
+THITHI = [
     "Prathamai",
     "Dwithiai",
     "Thrithiai",
@@ -328,7 +328,7 @@ thithi_names = [
 ]
 
 # Total 27 Yogams
-yogam_names = [
+YOGAM = [
     "Viskumbha",
     "Priti",
     "Ayusman",
@@ -359,7 +359,7 @@ yogam_names = [
 ]
 
 # Total 11 Karanams
-karanam_names = [
+KARANAM = [
     "Bava",
     "Balava",
     "Kaulava",
@@ -373,7 +373,7 @@ karanam_names = [
     "Kinstughna",
 ]
 
-week_days = [
+WDAYS = [
     "Sunday",
     "Monday",
     "Tuesday",
@@ -383,7 +383,7 @@ week_days = [
     "Saturday",
 ]
 
-nakshatra_names = [
+NAKSHATRA = [
     "Aswini",
     "Bharani",
     "Krittiga",
@@ -412,6 +412,59 @@ nakshatra_names = [
     "Uttirattathi",
     "Revathi",
 ]
+
+# 12 zodiac sign names (Rasi)
+RASI_NAMES = [
+    "Mesha",
+    "Rishabha",
+    "Mithuna",
+    "Kataka",
+    "Simha",
+    "Kanya",
+    "Tula",
+    "Vrischika",
+    "Dhanus",
+    "Makara",
+    "Kumbha",
+    "Meena",
+]
+RASI_TO_IDX = {name: idx for idx, name in enumerate(RASI_NAMES)}
+
+# Display-friendly graha names (title case)
+GRAHA_DISPLAY = [
+    "Lagn",
+    "Sun",
+    "Moon",
+    "Mars",
+    "Merc",
+    "Jupt",
+    "Venu",
+    "Satn",
+    "Uran",
+    "Nept",
+    "Rahu",
+    "Ketu",
+]
+
+# Shadbala planet labels (7 planets: Sun through Saturn)
+SHAD_LABELS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venus", "Saturn"]
+
+# Vimsottari Dasa — lord names and period (years), cycle of 9
+DASA_LORDS = [
+    "Ketu",
+    "Venus",
+    "Sun",
+    "Moon",
+    "Mars",
+    "Rahu",
+    "Jupiter",
+    "Saturn",
+    "Mercury",
+]
+DASA_YEARS = [7, 20, 6, 10, 7, 18, 16, 19, 17]
+
+# Planet indices for dasa rulers (into planet_degs array)
+DASA_RULER_IDX = [11, 6, 1, 2, 3, 10, 5, 7, 4]
 
 
 def getNewDict(keyList, valueList):

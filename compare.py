@@ -61,21 +61,7 @@ PLANET_ORDER = [
 SHAD_PLANETS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venus", "Saturn"]
 MUTUAL_PLANETS = ["Sun", "Moon", "Mars", "Merc", "Jupt", "Venu", "Satn", "Rahu", "Ketu"]
 
-RASI_NAMES = [
-    "Mesha",
-    "Rishabha",
-    "Mithuna",
-    "Kataka",
-    "Simha",
-    "Kanya",
-    "Tula",
-    "Vrischika",
-    "Dhanus",
-    "Makara",
-    "Kumbha",
-    "Meena",
-]
-RASI_TO_IDX = {n: i for i, n in enumerate(RASI_NAMES)}
+from constants import RASI_TO_IDX  # noqa: E402
 
 # Thresholds
 DEG_PASS = 0.05  # < 3 arcmin

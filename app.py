@@ -1,9 +1,8 @@
 """
 app.py — Bhagyagraha Streamlit Application
 
-Provides a web UI for the horoscope calculator with two tabs:
-  Tab 1 – Horoscope: structured Python output (tables, charts)
-  Tab 2 – HTML Report: C-style single-page report, downloadable as PDF
+Provides a web UI for the horoscope calculator.  Computation, HTML/PDF report
+generation, chart utilities and theme definitions live in their own modules.
 
 Run with:
   streamlit run app.py
@@ -13,34 +12,32 @@ import datetime as dt
 import os
 import re
 import sys
-from collections import defaultdict
 
 import streamlit as st
 import streamlit.components.v1 as components
 
-# ── Computation modules ────────────────────────────────────────────────────────
+# ── Computation modules ──────────────────────────────────────────────────────
 sys.path.insert(0, os.path.dirname(__file__))
 import constants as cn  # noqa: E402
 import functions as fn  # noqa: E402
 import shadbala as sb  # noqa: E402
-
-# ── Name tables (from constants.py) ───────────────────────────────────────────
 from constants import (  # noqa: E402
     DASA_LORDS,
     DASA_YEARS,
-    GRAHA_DISPLAY,
     GRAHA_NAMES,
     KARANAM,
     NAKSHATRA,
     RASI_NAMES,
     SAKA_MONTH,
-    SHAD_LABELS,
     TAMIL_MONTH,
     TAMIL_YEAR,
     THITHI,
     WDAYS,
     YOGAM,
 )
+from html_report import generate_single_page_html  # noqa: E402
+from pdf_report import generate_pdf  # noqa: E402
+from themes import THEME_NAMES, build_streamlit_css, get_theme  # noqa: E402
 
 # ── City presets (lat, lon in decimal degrees) ────────────────────────────────
 CITIES = {
@@ -59,10 +56,7 @@ CITIES = {
     "Varanasi": {"lat": 25.3176, "lon": 82.9739, "lat_dir": "N", "lon_dir": "E"},
     "Ahmedabad": {"lat": 23.0225, "lon": 72.5714, "lat_dir": "N", "lon_dir": "E"},
     "Thiruvananthapuram": {
-        "lat": 8.5241,
-        "lon": 76.9366,
-        "lat_dir": "N",
-        "lon_dir": "E",
+        "lat": 8.5241, "lon": 76.9366, "lat_dir": "N", "lon_dir": "E",
     },
     "Kochi": {"lat": 9.9312, "lon": 76.2673, "lat_dir": "N", "lon_dir": "E"},
     "Vijayawada": {"lat": 16.5062, "lon": 80.6480, "lat_dir": "N", "lon_dir": "E"},
@@ -75,67 +69,48 @@ CITIES = {
 
 # ── Timezone presets (seconds offset from GMT) ────────────────────────────────
 TIMEZONES = {
-    "IST  — India               (+05:30)": 5 * 3600 + 30 * 60,
-    "AoE  — Baker Island        (-12:00)": -12 * 3600,
-    "NUT  — Niue                (-11:00)": -11 * 3600,
-    "HST  — Hawaii              (-10:00)": -10 * 3600,
-    "MART — Marquesas           (-09:30)": -9 * 3600 - 30 * 60,
-    "AKST — Alaska              (-09:00)": -9 * 3600,
-    "PST  — Los Angeles         (-08:00)": -8 * 3600,
-    "MST  — Denver              (-07:00)": -7 * 3600,
-    "CST  — Chicago             (-06:00)": -6 * 3600,
-    "EST  — New York            (-05:00)": -5 * 3600,
-    "AST  — Puerto Rico         (-04:00)": -4 * 3600,
-    "NST  — Newfoundland        (-03:30)": -3 * 3600 - 30 * 60,
-    "BRT  — São Paulo           (-03:00)": -3 * 3600,
-    "GST  — South Georgia       (-02:00)": -2 * 3600,
-    "AZOT — Azores              (-01:00)": -1 * 3600,
-    "GMT  — London              (+00:00)": 0,
-    "CET  — Paris / Berlin      (+01:00)": 1 * 3600,
-    "EET  — Athens / Cairo      (+02:00)": 2 * 3600,
-    "MSK  — Moscow              (+03:00)": 3 * 3600,
-    "IRST — Tehran              (+03:30)": 3 * 3600 + 30 * 60,
-    "GST  — Dubai               (+04:00)": 4 * 3600,
-    "AFT  — Kabul               (+04:30)": 4 * 3600 + 30 * 60,
-    "PKT  — Karachi             (+05:00)": 5 * 3600,
-    "NPT  — Kathmandu           (+05:45)": 5 * 3600 + 45 * 60,
-    "BST  — Dhaka               (+06:00)": 6 * 3600,
-    "MMT  — Yangon              (+06:30)": 6 * 3600 + 30 * 60,
-    "ICT  — Bangkok             (+07:00)": 7 * 3600,
-    "CST  — China               (+08:00)": 8 * 3600,
-    "ACWST — Eucla              (+08:45)": 8 * 3600 + 45 * 60,
-    "JST  — Japan               (+09:00)": 9 * 3600,
-    "ACST — Adelaide            (+09:30)": 9 * 3600 + 30 * 60,
-    "AEST — Sydney              (+10:00)": 10 * 3600,
-    "LHST — Lord Howe Island    (+10:30)": 10 * 3600 + 30 * 60,
-    "SBT  — Solomon Islands     (+11:00)": 11 * 3600,
-    "NZST — New Zealand         (+12:00)": 12 * 3600,
-    "CHAST — Chatham Islands    (+12:45)": 12 * 3600 + 45 * 60,
-    "TOT  — Tonga               (+13:00)": 13 * 3600,
-    "LINT — Line Islands        (+14:00)": 14 * 3600,
+    "IST  \u2014 India               (+05:30)": 5 * 3600 + 30 * 60,
+    "AoE  \u2014 Baker Island        (-12:00)": -12 * 3600,
+    "NUT  \u2014 Niue                (-11:00)": -11 * 3600,
+    "HST  \u2014 Hawaii              (-10:00)": -10 * 3600,
+    "MART \u2014 Marquesas           (-09:30)": -9 * 3600 - 30 * 60,
+    "AKST \u2014 Alaska              (-09:00)": -9 * 3600,
+    "PST  \u2014 Los Angeles         (-08:00)": -8 * 3600,
+    "MST  \u2014 Denver              (-07:00)": -7 * 3600,
+    "CST  \u2014 Chicago             (-06:00)": -6 * 3600,
+    "EST  \u2014 New York            (-05:00)": -5 * 3600,
+    "AST  \u2014 Puerto Rico         (-04:00)": -4 * 3600,
+    "NST  \u2014 Newfoundland        (-03:30)": -3 * 3600 - 30 * 60,
+    "BRT  \u2014 S\u00e3o Paulo           (-03:00)": -3 * 3600,
+    "GST  \u2014 South Georgia       (-02:00)": -2 * 3600,
+    "AZOT \u2014 Azores              (-01:00)": -1 * 3600,
+    "GMT  \u2014 London              (+00:00)": 0,
+    "CET  \u2014 Paris / Berlin      (+01:00)": 1 * 3600,
+    "EET  \u2014 Athens / Cairo      (+02:00)": 2 * 3600,
+    "MSK  \u2014 Moscow              (+03:00)": 3 * 3600,
+    "IRST \u2014 Tehran              (+03:30)": 3 * 3600 + 30 * 60,
+    "GST  \u2014 Dubai               (+04:00)": 4 * 3600,
+    "AFT  \u2014 Kabul               (+04:30)": 4 * 3600 + 30 * 60,
+    "PKT  \u2014 Karachi             (+05:00)": 5 * 3600,
+    "NPT  \u2014 Kathmandu           (+05:45)": 5 * 3600 + 45 * 60,
+    "BST  \u2014 Dhaka               (+06:00)": 6 * 3600,
+    "MMT  \u2014 Yangon              (+06:30)": 6 * 3600 + 30 * 60,
+    "ICT  \u2014 Bangkok             (+07:00)": 7 * 3600,
+    "CST  \u2014 China               (+08:00)": 8 * 3600,
+    "ACWST \u2014 Eucla              (+08:45)": 8 * 3600 + 45 * 60,
+    "JST  \u2014 Japan               (+09:00)": 9 * 3600,
+    "ACST \u2014 Adelaide            (+09:30)": 9 * 3600 + 30 * 60,
+    "AEST \u2014 Sydney              (+10:00)": 10 * 3600,
+    "LHST \u2014 Lord Howe Island    (+10:30)": 10 * 3600 + 30 * 60,
+    "SBT  \u2014 Solomon Islands     (+11:00)": 11 * 3600,
+    "NZST \u2014 New Zealand         (+12:00)": 12 * 3600,
+    "CHAST \u2014 Chatham Islands    (+12:45)": 12 * 3600 + 45 * 60,
+    "TOT  \u2014 Tonga               (+13:00)": 13 * 3600,
+    "LINT \u2014 Line Islands        (+14:00)": 14 * 3600,
 }
 
-# South Indian chart: fixed grid positions → sign index (0-11)
-# (row, col) → sign
-SOUTH_INDIAN_GRID = {
-    (0, 0): 11,
-    (0, 1): 0,
-    (0, 2): 1,
-    (0, 3): 2,
-    (1, 0): 10,
-    (1, 3): 3,
-    (2, 0): 9,
-    (2, 3): 4,
-    (3, 0): 8,
-    (3, 1): 7,
-    (3, 2): 6,
-    (3, 3): 5,
-}
-# Reverse map: sign → (row, col)
-SIGN_TO_CELL = {v: k for k, v in SOUTH_INDIAN_GRID.items()}
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 
 def _nakshatra_pada(degs):
@@ -149,26 +124,20 @@ def _dasa_balance(moon_degs):
     """Return (lord_name, Y, M, D) for the Vimsottari dasa balance at birth."""
     nak_width = 360.0 / 27
     nak_idx = min(int(moon_degs / nak_width), 26)
-    nak_start = nak_idx * nak_width
-    frac_elapsed = (moon_degs - nak_start) / nak_width
-    frac_remaining = 1.0 - frac_elapsed
-
+    frac_remaining = 1.0 - (moon_degs - nak_idx * nak_width) / nak_width
     lord_idx = nak_idx % 9
-    lord = DASA_LORDS[lord_idx]
     bal_years = frac_remaining * DASA_YEARS[lord_idx]
-
     y = int(bal_years)
     m = int((bal_years - y) * 12)
     d = round(((bal_years - y) * 12 - m) * 30)
-    return lord, y, m, d
+    return DASA_LORDS[lord_idx], y, m, d
 
 
 def _full_dasa_table(moon_degs, birth_dt):
     """Build full 120-year Vimsottari Dasa/Bukti table starting from birth."""
     nak_width = 360.0 / 27
     nak_idx = min(int(moon_degs / nak_width), 26)
-    nak_start = nak_idx * nak_width
-    frac_remaining = 1.0 - (moon_degs - nak_start) / nak_width
+    frac_remaining = 1.0 - (moon_degs - nak_idx * nak_width) / nak_width
     lord_idx = nak_idx % 9
     current = birth_dt + dt.timedelta(
         days=frac_remaining * DASA_YEARS[lord_idx] * 365.25
@@ -179,7 +148,7 @@ def _full_dasa_table(moon_degs, birth_dt):
         buktis = []
         for b in range(9):
             bi = (di + b) % 9
-            current = current + dt.timedelta(
+            current += dt.timedelta(
                 days=DASA_YEARS[di] * DASA_YEARS[bi] / 120.0 * 365.25
             )
             buktis.append((DASA_LORDS[bi], current.strftime("%Y-%m-%d")))
@@ -187,52 +156,30 @@ def _full_dasa_table(moon_degs, birth_dt):
     return table
 
 
-def _vel_str(v):
-    """Format velocity (degrees/day) as 'D-MM-SS'."""
-    if v is None:
-        return "- - -"
-    d = int(v)
-    m = int((v - d) * 60)
-    s = int(((v - d) * 60 - m) * 60)
-    return f"{d}-{m:02d}-{s:02d}"
+def _dt_to_hrs(d):
+    return d.hour + d.minute / 60.0 + d.second / 3600.0
 
 
 def _ramc_hms(r):
-    """RAMC degrees → sidereal time string H:MM:SS."""
     h = int(r / 15)
     m = int((r / 15 - h) * 60)
     s = int(((r / 15 - h) * 60 - m) * 60)
     return f"{h}H-{m:02d}M-{s:02d}S"
 
 
-def _dt_to_hrs(d):
-    return d.hour + d.minute / 60.0 + d.second / 3600.0
-
-
-# ── Core computation ──────────────────────────────────────────────────────────
+# ── Core computation ─────────────────────────────────────────────────────────
 
 
 def compute(input_params):
     """Run all calculations; return a single structured result dict."""
-
     sun_params = fn.get_sun_params(input_params)
     moon_params = fn.get_moon_params(input_params, sun_params)
     lagn_params = fn.get_lagn_params(input_params, sun_params)
     seven = fn.get_seven_planets(sun_params, moon_params)
 
     planet_names_order = [
-        "LAGN",
-        "SUN",
-        "MOON",
-        "MARS",
-        "MERCURY",
-        "JUPITER",
-        "VENUS",
-        "SATURN",
-        "URANUS",
-        "NEPTUNE",
-        "RAHU",
-        "KETU",
+        "LAGN", "SUN", "MOON", "MARS", "MERCURY", "JUPITER",
+        "VENUS", "SATURN", "URANUS", "NEPTUNE", "RAHU", "KETU",
     ]
 
     planet_degs = []
@@ -250,14 +197,14 @@ def compute(input_params):
         else:
             planet_degs.append(seven[nm]["true_long"])
 
-    # ── Velocity, latitude, retrograde ────────────────────────────────────────
+    # Velocity, latitude, retrograde
     planet_velocity = [None] * 12
     planet_latitude = [None] * 12
     planet_retrograde = [False] * 12
 
-    planet_velocity[1] = abs(sun_params.get("hvel", 1.0))  # Sun helio vel
+    planet_velocity[1] = abs(sun_params.get("hvel", 1.0))
     planet_latitude[1] = 0.0
-    planet_velocity[2] = 13.18  # Moon ~avg deg/day
+    planet_velocity[2] = 13.18
     planet_latitude[2] = 0.0
 
     for _idx, _nm in zip(
@@ -287,7 +234,7 @@ def compute(input_params):
         house_positions, planet_degs
     )
     navamsa_positions = fn.get_navamsa_positions(planet_degs)
-    rasi_positions = fn.get_rasi_positons(planet_degs)
+    rasi_positions = fn.get_rasi_positions(planet_degs)
 
     tamil_day, tamil_month, tamil_year = fn.calc_tamil_date(input_params)
     saka_day, saka_month, saka_year = fn.calc_saka_date(input_params["in_datetime"])
@@ -297,24 +244,19 @@ def compute(input_params):
         sun_params["true_long"], moon_params["moon"]
     )
 
-    birth_day = input_params["in_datetime"].weekday()
-    birth_day = (birth_day + 1) % 7
+    birth_day = (input_params["in_datetime"].weekday() + 1) % 7
 
-    epoch_days = sun_params["d_epoch"]
-    kali_dina = int(epoch_days) + cn.kali_day
+    kali_dina = int(sun_params["d_epoch"]) + cn.kali_day
 
     p7_degs = [planet_degs[i] for i in [1, 2, 3, 4, 5, 6, 7]]
-
     all_signs = [int(d // 30) for d in planet_degs]
     all_deg_in = [d % 30 for d in planet_degs]
     all_min_in = [int((d % 30 - int(d % 30)) * 60) for d in planet_degs]
     all_navamsa = [int(n) for n in navamsa_positions]
 
     helio_5 = [
-        seven["MARS"]["helio_long"],
-        seven["MERCURY"]["helio_long"],
-        seven["JUPITER"]["helio_long"],
-        seven["VENUS"]["helio_long"],
+        seven["MARS"]["helio_long"], seven["MERCURY"]["helio_long"],
+        seven["JUPITER"]["helio_long"], seven["VENUS"]["helio_long"],
         seven["SATURN"]["helio_long"],
     ]
 
@@ -323,21 +265,10 @@ def compute(input_params):
     sunset_hrs = _dt_to_hrs(sun_params["set"])
 
     shad = sb.compute_shadbala(
-        p7_degs,
-        all_signs,
-        all_deg_in,
-        all_min_in,
-        all_navamsa,
-        helio_5,
-        house_positions,
-        bhava1,
-        bhava2,
-        local_hrs,
-        sunrise_hrs,
-        sunset_hrs,
-        kali_dina,
-        birth_day,
-        prec_degs,
+        p7_degs, all_signs, all_deg_in, all_min_in, all_navamsa,
+        helio_5, house_positions, bhava1, bhava2,
+        local_hrs, sunrise_hrs, sunset_hrs,
+        kali_dina, birth_day, prec_degs,
     )
 
     bhava_bala = sb.compute_bhava_bala(
@@ -352,12 +283,8 @@ def compute(input_params):
     if thithi_idx == 14:
         thithi_idx = 15
 
-    # Janma Nakshatra (birth star) from Moon
     moon_degs = planet_degs[2]
     janma_nak_idx, janma_pada = _nakshatra_pada(moon_degs)
-    janma_nakshatra = NAKSHATRA[janma_nak_idx]
-
-    # Vimsottari Dasa balance
     dasa_lord, dasa_y, dasa_m, dasa_d = _dasa_balance(moon_degs)
 
     return {
@@ -390,7 +317,7 @@ def compute(input_params):
             "weekday": WDAYS[birth_day],
             "sunrise": sun_params["rise"],
             "sunset": sun_params["set"],
-            "janma_nakshatra": janma_nakshatra,
+            "janma_nakshatra": NAKSHATRA[janma_nak_idx],
             "janma_pada": janma_pada,
             "dasa_lord": dasa_lord,
             "dasa_y": dasa_y,
@@ -404,1121 +331,45 @@ def compute(input_params):
     }
 
 
-# ── South Indian chart HTML ───────────────────────────────────────────────────
-
-
-def _south_indian_chart_html(by_sign, label, cell_size=90):
-    """Generate HTML for a 4×4 South Indian chart table."""
-    rows = []
-    for r in range(4):
-        cells = []
-        for c in range(4):
-            # Skip the centre 2×2 (handled by rowspan/colspan)
-            if r in (1, 2) and c in (1, 2):
-                continue
-            sign = SOUTH_INDIAN_GRID.get((r, c))
-            planets_here = "<br>".join(by_sign.get(sign, []))
-            # Centre label spanning rows 1-2, cols 1-2
-            if r == 1 and c == 1:
-                cells.append(
-                    f'<td align="center" rowspan="2" colspan="2" '
-                    f'style="font-weight:bold;font-size:14px;vertical-align:middle;">'
-                    f"{label}</td>"
-                )
-            style = (
-                f"width:{cell_size}px;height:{cell_size}px;"
-                f"vertical-align:top;padding:4px;font-size:11px;"
-            )
-            # For centre placeholder, we already appended it
-            if r == 1 and c == 1:
-                continue
-            cells.append(f'<td style="{style}">{planets_here}</td>')
-        rows.append("<tr>" + "".join(cells) + "</tr>")
-
-    table_style = (
-        "border-collapse:collapse;border:2px solid #000;" "width:100%;height:100%;"
-    )
-    td_border = "td { border:1px solid #444; }"
-    return (
-        f'<table style="{table_style}">'
-        f"<style>{td_border}</style>" + "".join(rows) + "</table>"
-    )
-
-
-def _make_south_indian_chart_html(by_sign, label, cell_size=90):
-    """Build a complete South Indian chart table (4 rows, handles centre span)."""
-    cell_h = cell_size
-    cell_w = cell_size
-    cell_s = f"width:{cell_w}px;height:{cell_h}px;vertical-align:top;padding:4px;font-size:11px;border:1px solid #444;"  # noqa: E501
-
-    def cell(sign):
-        planets_here = "<br>".join(by_sign.get(sign, []))
-        return f'<td style="{cell_s}">{planets_here}</td>'
-
-    centre_td = (
-        f'<th align="center" rowspan="2" colspan="2" '
-        f'style="width:{cell_w*2}px;height:{cell_h*2}px;'
-        f'border:1px solid #444;font-size:15px;">'
-        f"{label}</th>"
-    )
-
-    row0 = f"<tr>{cell(11)}{cell(0)}{cell(1)}{cell(2)}</tr>"
-    row1 = f"<tr>{cell(10)}{centre_td}{cell(3)}</tr>"
-    row2 = f"<tr>{cell(9)}{cell(4)}</tr>"
-    row3 = f"<tr>{cell(8)}{cell(7)}{cell(6)}{cell(5)}</tr>"
-
-    table_style = (
-        "border-collapse:collapse;border:2px solid #000;" f"width:{cell_w*4+10}px;"
-    )
-    return f'<table style="{table_style}">' + row0 + row1 + row2 + row3 + "</table>"
-
-
-def _planets_by_sign(planet_degs):
-    """Map sign index → list of planet abbreviations (for Rasi chart)."""
-    by_sign = defaultdict(list)
-    for i, degs in enumerate(planet_degs):
-        sign = int(degs // 30)
-        by_sign[sign].append(GRAHA_DISPLAY[i])
-    return dict(by_sign)
-
-
-def _planets_by_navamsa(navamsa_positions):
-    """Map navamsa sign index → list of planet abbreviations."""
-    by_sign = defaultdict(list)
-    for i, sign in enumerate(navamsa_positions):
-        by_sign[int(sign)].append(GRAHA_DISPLAY[i])
-    return dict(by_sign)
-
-
-def _planets_by_bhava(bhava_positions):
-    """Map sign index → planet list for the Bhava (house) chart.
-
-    bhava_positions is the 12-element list returned by fn.get_bhava_positions().
-    Each element is the *sign index* (0–11) of the South Indian chart cell where
-    that planet should appear — already offset by the Lagna sign so that the
-    Lagna always falls in its own sign's cell.
-    """
-    by_sign = defaultdict(list)
-    for i, sign in enumerate(bhava_positions):
-        by_sign[int(sign)].append(GRAHA_DISPLAY[i])
-    return dict(by_sign)
-
-
-def _graha_label(i, planet_retrograde):
-    """Return planet display name; append (R) if retrograde."""
-    label = GRAHA_DISPLAY[i]
-    if planet_retrograde and planet_retrograde[i]:
-        label += "(R)"
-    return label
-
-
-def _planets_by_sign_r(planet_degs, planet_retrograde):
-    """Like _planets_by_sign but includes (R) for retrograde planets."""
-    by_sign = defaultdict(list)
-    for i, degs in enumerate(planet_degs):
-        sign = int(degs // 30)
-        by_sign[sign].append(_graha_label(i, planet_retrograde))
-    return dict(by_sign)
-
-
-def _planets_by_navamsa_r(navamsa_positions, planet_retrograde):
-    """Like _planets_by_navamsa but includes (R) for retrograde planets."""
-    by_sign = defaultdict(list)
-    for i, sign in enumerate(navamsa_positions):
-        by_sign[int(sign)].append(_graha_label(i, planet_retrograde))
-    return dict(by_sign)
-
-
-def _planets_by_bhava_r(bhava_positions, planet_retrograde):
-    """Like _planets_by_bhava but includes (R) for retrograde planets."""
-    by_sign = defaultdict(list)
-    for i, sign in enumerate(bhava_positions):
-        by_sign[int(sign)].append(_graha_label(i, planet_retrograde))
-    return dict(by_sign)
-
-
-def generate_single_page_html(result):
-    """Compact single-page HTML: birth data + 3 charts + longitude table.
-    Layout styled with the contemporary teal palette."""
-    inp = result["input"]
-    cal = result["calendar"]
-    pd = result["planet_degs"]
-    nav = result["navamsa_positions"]
-
-    name = inp["name"]
-    birthplace = inp["birthplace"]
-    in_dt = inp["in_datetime"]
-    lat_d = int(inp["lat_degs"])
-    lat_m = int((inp["lat_degs"] - lat_d) * 60)
-    lon_d = int(inp["long_degs"])
-    lon_m = int((inp["long_degs"] - lon_d) * 60)
-    lat_dir = inp["lat_dirn"]
-    lon_dir = inp["long_dirn"]
-    sunrise = cal["sunrise"]
-    sunset = cal["sunset"]
-
-    retro = result.get("planet_retrograde", [False] * 12)
-    rasi_chart = _make_south_indian_chart_html(
-        _planets_by_sign_r(pd, retro), "RASI", cell_size=75
-    )
-    nav_chart = _make_south_indian_chart_html(
-        _planets_by_navamsa_r(nav, retro), "NAVAMSA", cell_size=75
-    )
-    bhava_chart = _make_south_indian_chart_html(
-        _planets_by_bhava_r(result["bhava_positions"], retro), "BHAVA", cell_size=75
-    )
-
-    long_rows = ""
-    for i, nm in enumerate(GRAHA_NAMES):
-        degs = pd[i]
-        d = int(degs)
-        m = int((degs - d) * 60)
-        nak, pada = _nakshatra_pada(degs)
-        r_mark = "&nbsp;<b style='color:#0e9688'>(R)</b>" if retro[i] else ""
-        long_rows += (
-            f"<tr>"
-            f"<td style='padding:2px 6px;border-bottom:1px solid #E4E4E7'>"
-            f"<b>{nm}</b>{r_mark}</td>"
-            f"<td align='right' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"  # noqa: E501
-            f"{d}&deg;</td>"
-            f"<td align='right' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"  # noqa: E501
-            f"{m}&prime;</td>"
-            f"<td style='padding:2px 6px;border-bottom:1px solid #E4E4E7'>"
-            f"{NAKSHATRA[nak]}</td>"
-            f"<td align='center' style='padding:2px 4px;border-bottom:1px solid #E4E4E7'>"  # noqa: E501
-            f"{pada}</td>"
-            f"</tr>\n"
-        )
-
-    td_hdr = "padding:4px 6px;background:#F7F7F7;border-bottom:2px solid #14B8A6;font-size:11px;color:#2D2D2D;"  # noqa: E501
-    td_key = "padding:4px 8px;font-weight:600;color:#2D2D2D;white-space:nowrap;font-size:12px;"  # noqa: E501
-    td_val = "padding:4px 8px;color:#3D3D3D;font-size:12px;"
-    chart_w = 75 * 4 + 10  # 310 px
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<style>
-  body {{ font-family: Arial, sans-serif; background:#FFFFFF; margin:16px; color:#2D2D2D; }}  # noqa: E501
-  h1   {{ text-align:center; color:#14B8A6; letter-spacing:5px; font-size:20px;
-          border-bottom:2px solid #14B8A6; padding-bottom:6px; margin-bottom:12px; }}
-  table {{ border-collapse:collapse; }}
-</style>
-</head>
-<body>
-<h1>B H A G Y A G R A H A</h1>
-
-<table width="100%" style="margin-bottom:14px;">
-<tr valign="top">
-  <td>
-    <table>
-      <tr><td style="{td_key}">Name</td><td style="{td_val}">{name}</td></tr>
-      <tr><td style="{td_key}">Date of Birth</td>
-          <td style="{td_val}">{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year} &mdash; {cal["weekday"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Time of Birth</td>
-          <td style="{td_val}">{in_dt.hour}H-{in_dt.minute:02d}M (Local Std Time)</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Place of Birth</td><td style="{td_val}">{birthplace}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Lat-Long</td>
-          <td style="{td_val}">{lat_d}&deg;-{lat_m:02d}&prime;({lat_dir})&nbsp;
-              {lon_d}&deg;-{lon_m:02d}&prime;({lon_dir})</td></tr>
-      <tr><td style="{td_key}">Janma Nakshatra</td>
-          <td style="{td_val}">{cal["janma_nakshatra"]} Pada-{cal["janma_pada"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Paksham</td><td style="{td_val}">{cal["paksham"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Balance of {cal["dasa_lord"]} dasa</td>
-          <td style="{td_val}">Y:&nbsp;{cal["dasa_y"]}&nbsp; M:&nbsp;{cal["dasa_m"]}&nbsp; D:&nbsp;{cal["dasa_d"]}</td></tr>  # noqa: E501
-    </table>
-  </td>
-  <td>
-    <table>
-      <tr><td style="{td_key}">Thithi</td><td style="{td_val}">{cal["thithi"]}</td></tr>
-      <tr><td style="{td_key}">Yogam</td><td style="{td_val}">{cal["yogam"]}</td></tr>
-      <tr><td style="{td_key}">Karanam</td><td style="{td_val}">{cal["karanam"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Tamil Date</td>
-          <td style="{td_val}">{cal["tamil_day"]} {cal["tamil_month"]} {cal["tamil_year"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Saka Date</td>
-          <td style="{td_val}">{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Kali Year</td><td style="{td_val}">{cal["kali_year"]}</td></tr>  # noqa: E501
-      <tr><td style="{td_key}">Sun Rise</td>
-          <td style="{td_val}">{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
-      <tr><td style="{td_key}">Sun Set</td>
-          <td style="{td_val}">{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
-    </table>
-  </td>
-</tr>
-</table>
-
-<table>
-<tr valign="top">
-  <td align="left" width="{chart_w}" height="{chart_w}" style="padding-right:12px;">{rasi_chart}</td>  # noqa: E501
-  <td align="left" width="{chart_w}" height="{chart_w}">{nav_chart}</td>
-</tr>
-<tr valign="top">
-  <td align="left" width="{chart_w}" style="padding-right:12px;padding-top:10px;">{bhava_chart}</td>  # noqa: E501
-  <td valign="top" style="padding-top:10px;">
-    <table style="border-collapse:collapse;">
-      <tr>
-        <th style="{td_hdr}"></th>
-        <th style="{td_hdr}" colspan="2">Longitude</th>
-        <th style="{td_hdr}">Nakshatra</th>
-        <th style="{td_hdr}">Pada</th>
-      </tr>
-      {long_rows}
-    </table>
-  </td>
-</tr>
-</table>
-
-</body>
-</html>"""
-
-
-# ── PDF generation via ReportLab ──────────────────────────────────────────────
-
-
-def _pdf_si_chart(by_sign, label, cell_w=50, cell_h=36):
-    """Build a 4×4 South Indian chart as a ReportLab Table."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Table, TableStyle
-
-    def cell(s):
-        return "\n".join(by_sign.get(s, []))
-
-    data = [
-        [cell(11), cell(0), cell(1), cell(2)],
-        [cell(10), label, "", cell(3)],
-        [cell(9), "", "", cell(4)],
-        [cell(8), cell(7), cell(6), cell(5)],
-    ]
-    t = Table(data, colWidths=[cell_w] * 4, rowHeights=[cell_h] * 4)
-    t.setStyle(
-        TableStyle(
-            [
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                ("SPAN", (1, 1), (2, 2)),
-                ("ALIGN", (1, 1), (2, 2), "CENTER"),
-                ("VALIGN", (1, 1), (2, 2), "MIDDLE"),
-                ("FONTNAME", (1, 1), (2, 2), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ("LEADING", (0, 0), (-1, -1), 8),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
-        )
-    )
-    return t
-
-
-def _pdf_ashta_chart(vals, label, cell_w=42, cell_h=28):
-    """Small 4×4 chart showing integer Ashtavarga values per sign."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Table, TableStyle
-
-    data = [
-        [str(vals[11]), str(vals[0]), str(vals[1]), str(vals[2])],
-        [str(vals[10]), label, "", str(vals[3])],
-        [str(vals[9]), "", "", str(vals[4])],
-        [str(vals[8]), str(vals[7]), str(vals[6]), str(vals[5])],
-    ]
-    t = Table(data, colWidths=[cell_w] * 4, rowHeights=[cell_h] * 4)
-    t.setStyle(
-        TableStyle(
-            [
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                ("SPAN", (1, 1), (2, 2)),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("FONTNAME", (1, 1), (2, 2), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ]
-        )
-    )
-    return t
-
-
-def _pdf_section_title(text, styles):
-    from reportlab.lib import colors
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import Paragraph
-
-    style = ParagraphStyle(
-        "sect", parent=styles["Heading2"], textColor=colors.darkred, spaceAfter=3
-    )
-    return Paragraph(text, style)
-
-
-def _pdf_p1(story, result, styles, mm):
-    """Page 1: Birth data, Panchangam, Astronomical."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
-
-    inp = result["input"]
-    cal = result["calendar"]
-    in_dt = inp["in_datetime"]
-    lat_d = int(inp["lat_degs"])
-    lat_m = int((inp["lat_degs"] - lat_d) * 60)
-    lon_d = int(inp["long_degs"])
-    lon_m = int((inp["long_degs"] - lon_d) * 60)
-
-    H1 = styles["Heading1"]
-
-    story.append(Paragraph("B H A G Y A G R A H A", H1))
-    story.append(Spacer(1, 4 * mm))
-
-    ts = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 0),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ]
-    )
-
-    birth_data = [
-        ["Name", inp["name"]],
-        [
-            "Date of Birth",
-            f"{in_dt.day:02d}/{in_dt.month:02d}/{in_dt.year}  ({cal['weekday']})",
-        ],
-        [
-            "Time of Birth",
-            f"{in_dt.hour:02d}H-{in_dt.minute:02d}M  (Local Standard Time)",
-        ],
-        ["Place of Birth", inp["birthplace"]],
-        ["Latitude", f"{lat_d}-{lat_m:02d} ({inp['lat_dirn']})"],
-        ["Longitude", f"{lon_d}-{lon_m:02d} ({inp['long_dirn']})"],
-        ["Sun Rise", cal["sunrise"].strftime("%H:%M")],
-        ["Sun Set", cal["sunset"].strftime("%H:%M")],
-    ]
-    t = Table(birth_data, colWidths=[55 * mm, 120 * mm])
-    t.setStyle(ts)
-    story.append(t)
-    story.append(Spacer(1, 5 * mm))
-
-    story.append(_pdf_section_title("Panchangam", styles))
-    pan_data = [
-        ["Paksham", cal["paksham"], "Thithi", cal["thithi"]],
-        ["Yogam", cal["yogam"], "Karanam", cal["karanam"]],
-        [
-            "Tamil Date",
-            f"{cal['tamil_day']} {cal['tamil_month']} {cal['tamil_year']}",
-            "Saka Date",
-            f"{cal['saka_day']} {cal['saka_month']} {cal['saka_year']}",
-        ],
-        ["Kali Year", str(cal["kali_year"]), "Weekday", cal["weekday"]],
-        [
-            "Nakshatra",
-            f"{cal['janma_nakshatra']} Pada-{cal['janma_pada']}",
-            "Dasa Balance",
-            f"{cal['dasa_lord']}  Y:{cal['dasa_y']} M:{cal['dasa_m']} D:{cal['dasa_d']}",  # noqa: E501
-        ],
-    ]
-    ts2 = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 0),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ]
-    )
-    t2 = Table(pan_data, colWidths=[36 * mm, 56 * mm, 36 * mm, 56 * mm])
-    t2.setStyle(ts2)
-    story.append(t2)
-    story.append(Spacer(1, 5 * mm))
-
-    story.append(_pdf_section_title("Astronomical Data", styles))
-    ast_data = [
-        ["Sidereal Time (RAMC)", _ramc_hms(result.get("sidereal_time", 0.0))],
-        ["Ayanamsa", f"{result.get('ayanamsa', 0.0):.4f}\u00b0"],
-    ]
-    t3 = Table(ast_data, colWidths=[70 * mm, 105 * mm])
-    t3.setStyle(
-        TableStyle(
-            [
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-                ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
-    )
-    story.append(t3)
-
-
-def _pdf_p2(story, result, styles, mm):
-    """Page 2: Nirayana Longitudes + RASI + NAVAMSA + Dasa balance."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
-
-    pd_ = result["planet_degs"]
-    nav = result["navamsa_positions"]
-    retro = result.get("planet_retrograde", [False] * 12)
-    cal = result["calendar"]
-
-    story.append(_pdf_section_title("Nirayana Longitudes", styles))
-
-    long_data = [["Graha", "Longitude", "Rasi", "Nakshatra", "Pada", "Navamsa"]]
-    for i, nm in enumerate(GRAHA_NAMES):
-        degs = pd_[i]
-        sign = int(degs // 30)
-        d = int(degs)
-        m = int((degs - d) * 60)
-        nak, pada = _nakshatra_pada(degs)
-        r_mark = "(R)" if retro[i] else ""
-        long_data.append(
-            [
-                nm + r_mark,
-                f"{d}\u00b0-{m:02d}\u2032",
-                RASI_NAMES[sign],
-                NAKSHATRA[nak],
-                str(pada),
-                RASI_NAMES[int(nav[i])],
-            ]
-        )
-    ts = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-        ]
-    )
-    t = Table(
-        long_data, colWidths=[22 * mm, 22 * mm, 28 * mm, 36 * mm, 14 * mm, 28 * mm]
-    )
-    t.setStyle(ts)
-    story.append(t)
-    story.append(Spacer(1, 6 * mm))
-
-    # Charts side by side — use raw ReportLab points (NOT mm) for cell_w/cell_h
-    # _pdf_si_chart colWidths=[cell_w]*4, so chart width = 4*cell_w points
-    # 62 pts ≈ 22mm → each chart = 248 pts ≈ 87.5mm; total = 248+6+248 = 502 pts < 527 ✓
-    rasi_by = _planets_by_sign_r(pd_, retro)
-    nav_by = _planets_by_navamsa_r(nav, retro)
-    _cw = 62  # raw points per cell
-    rasi_t2 = _pdf_si_chart(rasi_by, "RASI", cell_w=_cw, cell_h=34)
-    nav_t2 = _pdf_si_chart(nav_by, "NAVAMSA", cell_w=_cw, cell_h=34)
-    outer2 = Table([[rasi_t2, "", nav_t2]], colWidths=[_cw * 4, 6, _cw * 4])
-    outer2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(outer2)
-    story.append(Spacer(1, 6 * mm))
-
-    # Dasa balance
-    story.append(
-        Paragraph(
-            f"<b>Dasa Balance at Birth:</b>  "
-            f"{cal['dasa_lord']} — "
-            f"Y: {cal['dasa_y']}  M: {cal['dasa_m']}  D: {cal['dasa_d']}",
-            styles["Normal"],
-        )
-    )
-
-
-def _pdf_p3(story, result, styles, mm):
-    """Page 3: Bhava table + BHAVA chart + Dasa/Bukti table."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
-
-    house = result["house_positions"]
-    retro = result.get("planet_retrograde", [False] * 12)
-    cal = result["calendar"]
-
-    story.append(_pdf_section_title("Bhava Cusps", styles))
-    bhava_data = [["Bhava", "Longitude", "Rasi"]]
-    for i in range(12):
-        degs = house[i]
-        sign = int(degs // 30)
-        d = int(degs)
-        m = int((degs - d) * 60)
-        bhava_data.append([str(i + 1), f"{d}\u00b0-{m:02d}\u2032", RASI_NAMES[sign]])
-    ts = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-        ]
-    )
-    t = Table(bhava_data, colWidths=[20 * mm, 28 * mm, 32 * mm])
-    t.setStyle(ts)
-
-    bhava_by = _planets_by_bhava_r(result["bhava_positions"], retro)
-    # cell_w in raw points; 70 pts ≈ 25mm → chart = 4×70 = 280 pts ≈ 99mm
-    # bhava table (t) = 80mm = ~226 pts; total = 226+6+280 = 512 pts < 527 ✓
-    _cw_b = 70
-    bhava_chart = _pdf_si_chart(bhava_by, "BHAVA", cell_w=_cw_b, cell_h=34)
-
-    outer = Table([[t, "", bhava_chart]], colWidths=[int(80 * mm), 6, _cw_b * 4])
-    outer.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    story.append(outer)
-    story.append(Spacer(1, 6 * mm))
-
-    # Dasa/Bukti table
-    story.append(_pdf_section_title("Vimsottari Dasa/Bukti Table", styles))
-    dasa_table = cal.get("dasa_table", [])
-    for drow in dasa_table:
-        story.append(Paragraph(f"<b>{drow['dasa']} Dasa</b>", styles["Normal"]))
-        bdata = [[b[0], b[1]] for b in drow["buktis"]]
-        # Split buktis into 3 columns
-        rows = []
-        for idx in range(0, 9, 3):
-            row = []
-            for jj in range(3):
-                if idx + jj < len(bdata):
-                    row.extend(bdata[idx + jj])
-                else:
-                    row.extend(["", ""])
-            rows.append(row)
-        bt = Table(
-            rows, colWidths=[28 * mm, 24 * mm, 28 * mm, 24 * mm, 28 * mm, 24 * mm]
-        )
-        bt.setStyle(
-            TableStyle(
-                [
-                    ("FONTSIZE", (0, 0), (-1, -1), 7),
-                    ("GRID", (0, 0), (-1, -1), 0.2, colors.grey),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ]
-            )
-        )
-        story.append(bt)
-        story.append(Spacer(1, 2 * mm))
-
-
-def _pdf_p4(story, result, styles, mm):
-    """Page 4: Natural Disposition + Mutual Disposition (Rasi + Navamsa)."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Spacer, Table, TableStyle
-
-    mut = result["mutual"]
-    pnames = mut["planet_names"]
-
-    def _mat_table(matrix, pnames):
-        header = [""] + pnames
-        rows = [header]
-        for i, row in enumerate(matrix):
-            rows.append([pnames[i]] + list(row))
-        ts = TableStyle(
-            [
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-                ("LEFTPADDING", (0, 0), (-1, -1), 2),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-            ]
-        )
-        cw = [18 * mm] + [16 * mm] * len(pnames)
-        t = Table(rows, colWidths=cw)
-        t.setStyle(ts)
-        return t
-
-    story.append(_pdf_section_title("Mutual Disposition — Rasi", styles))
-    story.append(_mat_table(mut["rasi"], pnames))
-    story.append(Spacer(1, 8 * mm))
-    story.append(_pdf_section_title("Mutual Disposition — Navamsa", styles))
-    story.append(_mat_table(mut["navamsa"], pnames))
-
-
-def _pdf_ashta_section(ashta_dict, styles, mm):
-    """Return flowables for one planet's Ashtavarga section (3 charts + Sodhya Pinda)."""  # noqa: E501
-    from reportlab.lib import colors
-    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
-
-    name = ashta_dict["name"]
-    raw = ashta_dict["raw"]
-    thri = ashta_dict["thri"]
-    eka = ashta_dict["eka"]
-    contribs = ashta_dict["contributors"]
-    sp = ashta_dict["sodhya_pinda"]
-
-    flowables = []
-    flowables.append(
-        _pdf_section_title(f"{name} Ashtavarga  (Total={sum(raw)})", styles)
-    )
-
-    # Main chart: contributor abbreviations + count
-    main_by = {}
-    for s in range(12):
-        abbrs = " ".join(contribs[s])
-        main_by[s] = [f"{abbrs}", f"{raw[s]}"] if abbrs else [f"{raw[s]}"]
-
-    def cell_main(s):
-        return "\n".join(main_by.get(s, []))
-
-    from reportlab.platypus import Table as RLTable
-
-    main_data = [
-        [cell_main(11), cell_main(0), cell_main(1), cell_main(2)],
-        [cell_main(10), f"{name}\nMain\n{sum(raw)}", "", cell_main(3)],
-        [cell_main(9), "", "", cell_main(4)],
-        [cell_main(8), cell_main(7), cell_main(6), cell_main(5)],
-    ]
-    mt = RLTable(main_data, colWidths=[44 * mm] * 4, rowHeights=[32 * mm] * 4)
-    mt.setStyle(
-        TableStyle(
-            [
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                ("SPAN", (1, 1), (2, 2)),
-                ("ALIGN", (1, 1), (2, 2), "CENTER"),
-                ("VALIGN", (1, 1), (2, 2), "MIDDLE"),
-                ("FONTNAME", (1, 1), (2, 2), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
-                ("LEADING", (0, 0), (-1, -1), 8),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ]
-        )
-    )
-
-    # mt alone = 4×44mm = 176mm ≈ 499 pts — fits within 527 pt page width ✓
-    flowables.append(mt)
-    # Thri and Eka charts side by side below the main chart
-    # cell_w in raw points; 62 pts ≈ 22mm → each chart = 4×62 = 248 pts;
-    # total = 248+6+248 = 502 pts < 527 ✓
-    _cw2 = 62
-    thri_t = _pdf_ashta_chart(thri, "Thri", cell_w=_cw2, cell_h=22)
-    eka_t = _pdf_ashta_chart(eka, "Eka", cell_w=_cw2, cell_h=22)
-    side2 = Table([[thri_t, "", eka_t]], colWidths=[_cw2 * 4, 6, _cw2 * 4])
-    side2.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
-    flowables.append(side2)
-    flowables.append(Paragraph(f"Sodhya Pinda: <b>{sp}</b>", styles["Normal"]))
-    flowables.append(Spacer(1, 5 * mm))
-    return flowables
-
-
-def _pdf_p8(story, result, styles, mm):
-    """Page 8: Drig Bala 7×7 matrix + Bhava Drig aspects."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Spacer, Table, TableStyle
-
-    shad = result["shad"]
-    p7_degs = [result["planet_degs"][i] for i in [1, 2, 3, 4, 5, 6, 7]]
-
-    story.append(_pdf_section_title("Drig Bala — Pairwise Aspect Strengths", styles))
-
-    try:
-        drig_mat = sb.drig_bala_matrix(p7_degs)
-    except Exception:
-        drig_mat = [[0.0] * 7 for _ in range(7)]
-
-    pl7 = SHAD_LABELS
-    header = [""] + pl7
-    rows = [header]
-    for i, row in enumerate(drig_mat):
-        rows.append([pl7[i]] + [f"{v:.2f}" for v in row])
-    ts = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ]
-    )
-    cw = [22 * mm] + [23 * mm] * 7  # 22+7*23=183mm < 186mm ✓
-    t = Table(rows, colWidths=cw)
-    t.setStyle(ts)
-    story.append(t)
-    story.append(Spacer(1, 8 * mm))
-
-    # Ben / Mal drig summary
-    story.append(_pdf_section_title("Benefic / Malefic Drig Bala", styles))
-    bd = shad.get("ben_drig", [0] * 7)
-    md = shad.get("mal_drig", [0] * 7)
-    bm_data = [
-        [""] + pl7,
-        ["Ben(+)"] + [f"{v:.2f}" for v in bd],
-        ["Mal(-)"] + [f"{v:.2f}" for v in md],
-    ]
-    bmt = Table(bm_data, colWidths=[22 * mm] + [23 * mm] * 7)  # 183mm ✓
-    bmt.setStyle(ts)
-    story.append(bmt)
-
-
-def _pdf_p9(story, result, styles, mm):
-    """Page 9: Shadbala + Bhava Bala."""
-    from reportlab.lib import colors
-    from reportlab.platypus import Spacer, Table, TableStyle
-
-    shad = result["shad"]
-    bb = result["bhava_bala"]
-
-    story.append(_pdf_section_title("Shadbala — Planetary Strength", styles))
-    pl7 = SHAD_LABELS
-    shad_components = [
-        ("Sthana Bala", "sthana"),
-        ("Kala Bala", "kala"),
-        ("Dig Bala", "dig"),
-        ("Naisargika", "naisa"),
-        ("Chesta Bala", "chesta"),
-        ("Drik (+)", "ben_drig"),
-        ("Drik (-)", "mal_drig"),
-        ("TOTAL", "total"),
-        ("Min Req", "min_required"),
-        ("Relative", "relative"),
-        ("Ishta", "ishta"),
-        ("Kashta", "kashta"),
-    ]
-    shad_rows = [["Bala"] + pl7]
-    for label, key in shad_components:
-        row = [label] + [f"{v:.2f}" for v in shad[key]]
-        shad_rows.append(row)
-
-    ts = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-            ("BACKGROUND", (0, 8), (-1, 8), colors.Color(0.80, 0.90, 0.80)),
-            ("LEFTPADDING", (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
-        ]
-    )
-    cw = [30 * mm] + [22 * mm] * 7
-    t = Table(shad_rows, colWidths=cw)
-    t.setStyle(ts)
-    story.append(t)
-    story.append(Spacer(1, 8 * mm))
-
-    # Bhava Bala
-    story.append(_pdf_section_title("Bhava Bala — House Strength", styles))
-    bb_components = [
-        ("Swami Bala", "swami"),
-        ("Dig Bala", "dig"),
-        ("Drig Bala", "drig"),
-        ("Spl Drig", "spl_drig"),
-        ("Occ Str", "ostr"),
-        ("TOTAL", "total"),
-        ("Relative", "relative"),
-    ]
-    hdr = ["Bala"] + [f"H{h+1}" for h in range(12)]
-    bb_rows = [hdr]
-    for label, key in bb_components:
-        bb_rows.append([label] + [f"{v:.2f}" for v in bb[key]])
-
-    ts2 = TableStyle(
-        [
-            ("FONTSIZE", (0, 0), (-1, -1), 7),
-            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("GRID", (0, 0), (-1, -1), 0.3, colors.grey),
-            (
-                "ROWBACKGROUNDS",
-                (0, 1),
-                (-1, -1),
-                [colors.white, colors.Color(0.96, 0.96, 0.96)],
-            ),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
-            ("LEFTPADDING", (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 2),
-        ]
-    )
-    cw2 = [22 * mm] + [13 * mm] * 12  # 22+12*13=178mm < 186mm ✓
-    t2 = Table(bb_rows, colWidths=cw2)
-    t2.setStyle(ts2)
-    story.append(t2)
-
-
-def generate_pdf(result) -> bytes:
-    """Generate a 9-page PDF horoscope matching HOR.OUT structure.
-
-    Returns raw PDF bytes suitable for st.download_button.
-    """
-    try:
-        from io import BytesIO
-
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.lib.units import mm
-        from reportlab.platypus import PageBreak, SimpleDocTemplate
-    except ImportError as e:
-        raise RuntimeError(
-            "reportlab is required for PDF generation. "
-            "Install it with: pip install reportlab"
-        ) from e
-
-    buf = BytesIO()
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=A4,
-        leftMargin=12 * mm,
-        rightMargin=12 * mm,
-        topMargin=12 * mm,
-        bottomMargin=12 * mm,
-    )
-    styles = getSampleStyleSheet()
-    # Override heading style
-    styles["Heading1"].fontSize = 16
-    styles["Heading1"].spaceAfter = 6
-
-    story = []
-
-    _pdf_p1(story, result, styles, mm)
-    story.append(PageBreak())
-    _pdf_p2(story, result, styles, mm)
-    story.append(PageBreak())
-    _pdf_p3(story, result, styles, mm)
-    story.append(PageBreak())
-    _pdf_p4(story, result, styles, mm)
-
-    if result.get("ashtavarga"):
-        from reportlab.platypus import KeepTogether
-
-        ashta = result["ashtavarga"]
-        story.append(PageBreak())
-        for p in ashta.get("planets", []):
-            story.append(KeepTogether(_pdf_ashta_section(p, styles, mm)))
-        sarva = ashta.get("sarva")
-        if sarva:
-            story.append(KeepTogether(_pdf_ashta_section(sarva, styles, mm)))
-
-    story.append(PageBreak())
-    _pdf_p8(story, result, styles, mm)
-    story.append(PageBreak())
-    _pdf_p9(story, result, styles, mm)
-
-    doc.build(story)
-    return buf.getvalue()
-
-
-# ── Custom CSS injection ──────────────────────────────────────────────────────
-
-_CSS = """
-<style>
-/* ── Sidebar: charcoal ── */
-section[data-testid="stSidebar"] {
-    background: #2D2D2D !important;
-    border-right: 2px solid #14B8A6 !important;
-}
-section[data-testid="stSidebar"] .stMarkdown,
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span,
-section[data-testid="stSidebar"] div {
-    color: #E5E5E5 !important;
-}
-section[data-testid="stSidebar"] h1,
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: #14B8A6 !important;
-}
-section[data-testid="stSidebar"] input,
-section[data-testid="stSidebar"] textarea {
-    background-color: #3A3A3A !important;
-    border: 1px solid #14B8A6 !important;
-    color: #E5E5E5 !important;
-    border-radius: 6px !important;
-}
-section[data-testid="stSidebar"] .stSelectbox > div > div,
-section[data-testid="stSidebar"] .stDateInput > div > div,
-section[data-testid="stSidebar"] .stTimeInput > div > div {
-    background-color: #3A3A3A !important;
-    border: 1px solid #14B8A6 !important;
-    color: #E5E5E5 !important;
-    border-radius: 6px !important;
-}
-section[data-testid="stSidebar"] hr {
-    border-color: #4A4A4A !important;
-    margin: 0.6rem 0 !important;
-}
-/* Sidebar section dividers */
-.sb-section {
-    background: rgba(20,184,166,0.10);
-    border-left: 3px solid #14B8A6;
-    border-radius: 0 6px 6px 0;
-    padding: 8px 10px 8px 12px;
-    margin: 8px 0 4px 0;
-}
-.sb-section-title {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: #14B8A6 !important;
-}
-
-/* ── Main area: white ── */
-.main .block-container {
-    background-color: #FFFFFF;
-    padding-top: 1rem !important;
-}
-
-/* ── Page header banner ── */
-.bhagya-header {
-    background: #2D2D2D;
-    color: #E5E5E5;
-    padding: 1.2rem 2rem;
-    border-radius: 12px;
-    text-align: center;
-    margin-bottom: 1.2rem;
-    border: 1px solid #E4E4E7;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-}
-.bhagya-header h1 {
-    font-size: 1.8rem;
-    letter-spacing: 6px;
-    margin: 0 0 0.2rem 0;
-    color: #14B8A6;
-}
-.bhagya-header .subhead {
-    font-size: 0.85rem;
-    color: #E5E5E5;
-    letter-spacing: 2px;
-}
-
-/* ── Section headings ── */
-.section-head {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #14B8A6;
-    border-bottom: 2px solid #14B8A6;
-    padding-bottom: 0.3rem;
-    margin: 1.2rem 0 0.7rem 0;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-/* ── Primary button ── */
-.stButton > button[kind="primary"] {
-    background: #14B8A6 !important;
-    border: none !important;
-    color: #FFFFFF !important;
-    font-weight: 700 !important;
-    letter-spacing: 1.5px !important;
-    border-radius: 8px !important;
-    padding: 0.6rem 1rem !important;
-    box-shadow: 0 2px 6px rgba(20,184,166,0.30) !important;
-    transition: all 0.2s !important;
-}
-.stButton > button[kind="primary"]:hover {
-    background: #0e9688 !important;
-    box-shadow: 0 4px 12px rgba(20,184,166,0.45) !important;
-    transform: translateY(-1px) !important;
-}
-
-/* ── Download buttons ── */
-.stDownloadButton > button {
-    background: #F7F7F7 !important;
-    border: 1px solid #14B8A6 !important;
-    color: #14B8A6 !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-}
-.stDownloadButton > button:hover {
-    background: #14B8A6 !important;
-    color: #FFFFFF !important;
-}
-
-/* ── Dataframes ── */
-.stDataFrame {
-    border: 1px solid #E4E4E7 !important;
-    border-radius: 8px !important;
-}
-
-/* ── Divider ── */
-hr { border-color: #E4E4E7 !important; }
-</style>
-"""
-
-
-# ── Sidebar helpers ───────────────────────────────────────────────────────────
-
-
-def _sb_section(icon, title):
-    st.markdown(
-        f'<div class="sb-section"><span class="sb-section-title">'
-        f"{icon}&nbsp;&nbsp;{title}</span></div>",
-        unsafe_allow_html=True,
-    )
-
-
-# ── Main Streamlit App ────────────────────────────────────────────────────────
+# ── Main Streamlit App ───────────────────────────────────────────────────────
 
 
 def main():
     st.set_page_config(
-        page_title="Bhagyagraha – Hindu Horoscope",
-        page_icon="🪐",
+        page_title="Bhagyagraha \u2013 Hindu Horoscope",
+        page_icon="\U0001fa90",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 
-    # Inject CSS
-    st.markdown(_CSS, unsafe_allow_html=True)
-
-    # ── Page header ──
-    st.markdown(
-        """
-    <div class="bhagya-header">
-      <h1>🪐BHAGYAGRAHA🪐</h1>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
     # ────────────────────── Sidebar ──────────────────────
     with st.sidebar:
+        # Theme selector at top
+        theme_name = st.selectbox(
+            "Theme",
+            THEME_NAMES,
+            index=0,
+            key="theme_select",
+        )
+        theme = get_theme(theme_name)
+
+        st.divider()
+
         st.markdown(
-            """
-        <div style="text-align:center;padding:1rem 0 0.5rem;">
-          <div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;
-                      color:#14B8A6;">BHAGYAGRAHA</div>
-        </div>
-        """,
+            f'<div style="text-align:center;padding:0.5rem 0;">'
+            f'<div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;'
+            f'color:{theme["accent"]};">BHAGYAGRAHA</div></div>',
             unsafe_allow_html=True,
         )
 
         st.divider()
 
-        # ── 1. Personal ──
         name = st.text_input(
             "Full Name", value="Sample Data", placeholder="Enter full name"
         )
 
         st.divider()
 
-        # ── 2. Date & Time ──
         birth_date = st.date_input(
             "Date of Birth",
             value=dt.date(1947, 8, 15),
@@ -1528,11 +379,8 @@ def main():
         )
 
         DEFAULT_TIME = "10:30"
-        # Initialize session state
         if "time_input" not in st.session_state:
             st.session_state.time_input = DEFAULT_TIME
-
-        # Validate previous value BEFORE creating widget
         try:
             dt.datetime.strptime(st.session_state.time_input, "%H:%M")
         except ValueError:
@@ -1541,7 +389,6 @@ def main():
         time_str = st.text_input(
             "Time of Birth (Local Standard Time HH:MM)", key="time_input"
         )
-
         birth_time = dt.datetime.strptime(time_str, "%H:%M").time()
 
         tz_choice = st.selectbox(
@@ -1554,60 +401,50 @@ def main():
 
         st.divider()
 
-        # ── 3. Timezone ──
         birthplace = st.text_input(
             "Place of Birth", value="Salem", placeholder="City, State"
         )
 
-        # ── 4. Location ──
         def_lat, def_lon = 11.6643, 78.1460
-        def_lat_dir, def_lon_dir = 0, 0
-
-        # Use city_choice as part of the key so widgets reset when city changes
-        ck = 0  # cache key suffix
+        ck = 0
 
         cl, cd = st.columns([3, 1])
         lat_val = cl.number_input(
-            "Latitude",
-            min_value=0.0,
-            max_value=90.0,
-            value=def_lat,
-            step=0.0001,
-            format="%.4f",
-            key=f"lat_{ck}",
+            "Latitude", min_value=0.0, max_value=90.0,
+            value=def_lat, step=0.0001, format="%.4f", key=f"lat_{ck}",
         )
-        lat_dir = cd.radio("N/S", ["N", "S"], index=def_lat_dir, key=f"latd_{ck}")
+        lat_dir = cd.radio("N/S", ["N", "S"], index=0, key=f"latd_{ck}")
 
         ol, od = st.columns([3, 1])
         lon_val = ol.number_input(
-            "Longitude",
-            min_value=0.0,
-            max_value=180.0,
-            value=def_lon,
-            step=0.0001,
-            format="%.4f",
-            key=f"lon_{ck}",
+            "Longitude", min_value=0.0, max_value=180.0,
+            value=def_lon, step=0.0001, format="%.4f", key=f"lon_{ck}",
         )
-        lon_dir = od.radio("E/W", ["E", "W"], index=def_lon_dir, key=f"lond_{ck}")
+        lon_dir = od.radio("E/W", ["E", "W"], index=0, key=f"lond_{ck}")
 
         st.divider()
 
         calculate = st.button(
-            "🔭  Calculate",
-            use_container_width=True,
-            type="primary",
+            "\U0001f52d  Calculate", use_container_width=True, type="primary",
         )
+
+    # Inject themed CSS
+    st.markdown(build_streamlit_css(theme), unsafe_allow_html=True)
+
+    # ── Page header ──
+    st.markdown(
+        f'<div class="bhagya-header">'
+        f'<h1>\U0001fa90 BHAGYAGRAHA \U0001fa90</h1></div>',
+        unsafe_allow_html=True,
+    )
 
     # ── Build input_params ──
     input_params = {
         "name": name,
         "birthplace": birthplace,
         "in_datetime": dt.datetime(
-            birth_date.year,
-            birth_date.month,
-            birth_date.day,
-            birth_time.hour,
-            birth_time.minute,
+            birth_date.year, birth_date.month, birth_date.day,
+            birth_time.hour, birth_time.minute,
         ),
         "diff_from_gst_in_sec": int(diff_sec),
         "lat_degs": float(lat_val),
@@ -1618,39 +455,37 @@ def main():
 
     # ── Compute ──
     if calculate:
-        with st.spinner("Computing horoscope…"):
+        with st.spinner("Computing horoscope\u2026"):
             try:
                 st.session_state.result = compute(input_params)
+                st.session_state.result_theme = theme_name
             except Exception as e:
                 st.error(f"Calculation error: {e}")
                 st.stop()
 
     if "result" not in st.session_state:
         st.markdown(
-            """
-        <div style="text-align:center;padding:4rem 2rem;color:#2D2D2D;">
-          <div style="font-size:4rem;margin-bottom:1rem;">🪐</div>
-          <div style="font-size:1.3rem;font-weight:700;letter-spacing:2px;
-                      margin-bottom:0.5rem;color:#14B8A6;">Welcome to Bhagyagraha</div>
-          <div style="font-size:0.95rem;color:#555555;">
-            Enter birth details in the sidebar and click
-            <b>Calculate</b> to begin.
-          </div>
-        </div>
-        """,
+            f'<div style="text-align:center;padding:4rem 2rem;color:{theme["body_text"]};">'
+            f'<div style="font-size:4rem;margin-bottom:1rem;">\U0001fa90</div>'
+            f'<div style="font-size:1.3rem;font-weight:700;letter-spacing:2px;'
+            f'margin-bottom:0.5rem;color:{theme["accent"]};">Welcome to Bhagyagraha</div>'
+            f'<div style="font-size:0.95rem;color:{theme["muted_text"]};">'
+            f'Enter birth details in the sidebar and click <b>Calculate</b> to begin.'
+            f'</div></div>',
             unsafe_allow_html=True,
         )
         st.stop()
 
     result = st.session_state.result
+    active_theme = st.session_state.get("result_theme", theme_name)
 
     # ── Download buttons + single-page HTML display ──
-    single_html = generate_single_page_html(result)
+    single_html = generate_single_page_html(result, active_theme)
 
     col1, col2, col3 = st.columns([1, 1, 4])
     with col1:
         st.download_button(
-            label="⬇ Single Page Download",
+            label="\u2b07 Single Page Download",
             data=single_html.encode("utf-8"),
             file_name=f"{result['input']['name']}_horoscope.html",
             mime="text/html",
@@ -1660,7 +495,7 @@ def main():
         try:
             pdf_bytes = generate_pdf(result)
             st.download_button(
-                label="⬇ Complete Download",
+                label="\u2b07 Complete Download",
                 data=pdf_bytes,
                 file_name=f"{result['input']['name']}_horoscope.pdf",
                 mime="application/pdf",
@@ -1673,13 +508,11 @@ def main():
 
     # ── Footer ──
     st.markdown(
-        """
-    <hr style="margin-top:2rem;border-color:#E4E4E7;">
-    <div style="text-align:center;font-size:0.75rem;color:#888888;padding:0.5rem 0 1rem;">  # noqa: E501
-      Bhagyagraha &nbsp;·&nbsp; Hindu Horoscope Calculator &nbsp;·&nbsp;
-      Calculations based on Lahiri Ayanamsa (sidereal)
-    </div>
-    """,
+        f'<hr style="margin-top:2rem;border-color:{theme["table_border"]};">'
+        f'<div style="text-align:center;font-size:0.75rem;color:{theme["muted_text"]};'
+        f'padding:0.5rem 0 1rem;">'
+        f'Bhagyagraha &nbsp;\u00b7&nbsp; Hindu Horoscope Calculator &nbsp;\u00b7&nbsp;'
+        f'Calculations based on Lahiri Ayanamsa (sidereal)</div>',
         unsafe_allow_html=True,
     )
 

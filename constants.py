@@ -467,20 +467,9 @@ DASA_YEARS = [7, 20, 6, 10, 7, 18, 16, 19, 17]
 DASA_RULER_IDX = [11, 6, 1, 2, 3, 10, 5, 7, 4]
 
 
-def getNewDict(keyList, valueList):
-    """Return a dictionary, initialized using two lists"""
-    newDict = dict()
-    newDict.fromkeys(keyList)
-    assert len(keyList) == len(valueList)
-    for i in range(len(keyList)):
-        newDict[keyList[i]] = valueList[i]
-
-    return newDict
-
-
 # Take care that the items in planets and valueList are in appropriate order
 planet_names = ["MARS", "MERCURY", "JUPITER", "VENUS", "SATURN", "URANUS", "NEPTUNE"]
 
 planet_props = [Mars(), Mercury(), Jupiter(), Venus(), Saturn(), Uranus(), Neptune()]
 
-planet_dict = getNewDict(planet_names, planet_props)
+planet_dict = dict(zip(planet_names, planet_props))

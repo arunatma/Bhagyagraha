@@ -147,10 +147,22 @@ section[data-testid="stSidebar"] hr {{
     color: {t["accent"]} !important;
 }}
 
-/* ── Main area ── */
+/* ── Main area — override Streamlit dark mode on every container ── */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stHeader"],
+[data-testid="stBottom"],
+.main {{
+    background-color: {t["body_bg"]} !important;
+    color: {t["body_text"]} !important;
+}}
 .main .block-container {{
-    background-color: {t["body_bg"]};
+    background-color: {t["body_bg"]} !important;
     padding-top: 1rem !important;
+}}
+.main .stMarkdown,
+.main p, .main span, .main label, .main div {{
+    color: {t["body_text"]} !important;
 }}
 
 /* ── Page header banner ── */

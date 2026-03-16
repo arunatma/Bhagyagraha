@@ -1227,7 +1227,7 @@ def get_geo_longitude(
     planet_lat_rads = math.atan((rad_vec / em) * math.sin(sine_value))
     planet_lat_degs = planet_lat_rads * cn.degs_per_radian
 
-    vel_diff_degs = find_diff_degs(hvel_degs, hvel_sun_degs)
+    vel_diff_degs = hvel_degs - hvel_sun_degs  # raw difference (can be negative)
     geo_vel_adder = (
         (
             (se / em) * (math.cos(angle_mse_rads) / math.cos(angle_sme_rads))
@@ -1238,7 +1238,7 @@ def get_geo_longitude(
         * vel_diff_degs
         * (1 / 1.1)
     )
-    geo_vel_degs = find_sum_degs([hvel_degs, geo_vel_adder])
+    geo_vel_degs = hvel_degs + geo_vel_adder  # can be negative for retrograde
     return geo_vel_degs, true_long_planet_degs, planet_lat_degs
 
 

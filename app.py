@@ -342,19 +342,18 @@ def main():
         initial_sidebar_state="expanded",
     )
 
+    # Resolve theme before sidebar so it can be used everywhere, including the
+    # BHAGYAGRAHA title inside the sidebar.  The selectbox at the bottom of the
+    # sidebar writes to session_state["theme_select"] on every change, which
+    # triggers a rerun and this read picks up the new value immediately.
+    theme_name = st.session_state.get("theme_select", THEME_NAMES[0])
+    theme = get_theme(theme_name)
+
+    # Inject themed CSS once, at the very top, before any widgets render
+    st.markdown(build_streamlit_css(theme), unsafe_allow_html=True)
+
     # ────────────────────── Sidebar ──────────────────────
     with st.sidebar:
-        # Theme selector at top
-        theme_name = st.selectbox(
-            "Theme",
-            THEME_NAMES,
-            index=0,
-            key="theme_select",
-        )
-        theme = get_theme(theme_name)
-
-        st.divider()
-
         st.markdown(
             f'<div style="text-align:center;padding:0.5rem 0;">'
             f'<div style="font-size:1.1rem;font-weight:800;letter-spacing:3px;'
@@ -428,8 +427,15 @@ def main():
             "\U0001f52d  Calculate", use_container_width=True, type="primary",
         )
 
-    # Inject themed CSS
-    st.markdown(build_streamlit_css(theme), unsafe_allow_html=True)
+        st.divider()
+
+        # Theme selector at the bottom of the sidebar
+        st.selectbox(
+            "Theme",
+            THEME_NAMES,
+            index=THEME_NAMES.index(theme_name),
+            key="theme_select",
+        )
 
     # ── Page header ──
     st.markdown(

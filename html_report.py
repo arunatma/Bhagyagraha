@@ -10,7 +10,6 @@ from chart_utils import planets_by_bhava, planets_by_navamsa, planets_by_sign, s
 from constants import GRAHA_NAMES, NAKSHATRA
 from themes import get_theme
 import time
-cache_bust = int(time.time())
 
 def _nakshatra_pada(degs):
     nak = min(int(degs / (360.0 / 27)), 26)
@@ -21,6 +20,7 @@ def _nakshatra_pada(degs):
 
 def generate_single_page_html(result, theme_name="Teal & Charcoal"):
     """Compact single-page HTML for embedding in Streamlit via st.components.v1.html()"""
+    cache_bust = int(time.time() * 1000)  # fresh on every call so iframe re-renders
     t = get_theme(theme_name)
     inp = result["input"]
     cal = result["calendar"]

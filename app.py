@@ -458,7 +458,6 @@ def main():
         with st.spinner("Computing horoscope\u2026"):
             try:
                 st.session_state.result = compute(input_params)
-                st.session_state.result_theme = theme_name
             except Exception as e:
                 st.error(f"Calculation error: {e}")
                 st.stop()
@@ -477,10 +476,10 @@ def main():
         st.stop()
 
     result = st.session_state.result
-    active_theme = st.session_state.get("result_theme", theme_name)
 
     # ── Download buttons + single-page HTML display ──
-    single_html = generate_single_page_html(result, active_theme)
+    # Always use current theme_name so theme changes apply without re-calculating
+    single_html = generate_single_page_html(result, theme_name)
 
     _, btn_col1, btn_col2, _ = st.columns([2, 1, 1, 2])
     with btn_col1:

@@ -86,7 +86,7 @@ def south_indian_chart_html(by_sign, label, cell_size=90, border_color="#444"):
 
     table_style = (
         f"border-collapse:collapse;border:2px solid {border_color};"
-        f"width:{cell_size * 4 + 10}px;"
+        f"width:{cell_size * 4}px;"
     )
     return f'<table style="{table_style}">{row0}{row1}{row2}{row3}</table>'
 

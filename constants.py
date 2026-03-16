@@ -432,18 +432,18 @@ RASI_TO_IDX = {name: idx for idx, name in enumerate(RASI_NAMES)}
 
 # Display-friendly graha names (title case)
 GRAHA_DISPLAY = [
-    "Lagn",
-    "Sun",
-    "Moon",
-    "Mars",
-    "Merc",
-    "Jupt",
-    "Venu",
-    "Satn",
-    "Uran",
-    "Nept",
-    "Rahu",
-    "Ketu",
+    "LAGN",
+    "SUN",
+    "MOON",
+    "MARS",
+    "MERC",
+    "JUPT",
+    "VENU",
+    "SATN",
+    "URAN",
+    "NEPT",
+    "RAHU",
+    "KETU",
 ]
 
 # Shadbala planet labels (7 planets: Sun through Saturn)

@@ -40,7 +40,7 @@ def generate_single_page_html(result, theme_name="Teal & Charcoal"):
 
     retro = result.get("planet_retrograde", [False] * 12)
     cell_size = 75
-    chart_w = cell_size * 4 + 10
+    chart_w = cell_size * 4
 
     rasi_chart = south_indian_chart_html(
         planets_by_sign(pd, retro), "RASI",
@@ -131,23 +131,23 @@ def generate_single_page_html(result, theme_name="Teal & Charcoal"):
       <tr><td style="{td_key}">Saka Date</td>
           <td style="{td_val}">{cal["saka_day"]} {cal["saka_month"]} {cal["saka_year"]}</td></tr>
       <tr><td style="{td_key}">Kali Year</td><td style="{td_val}">{cal["kali_year"]}</td></tr>
-      <tr><td style="{td_key}">Sun Rise</td>
-          <td style="{td_val}">{sunrise.strftime("%H:%M")} (Local Mean Time)</td></tr>
-      <tr><td style="{td_key}">Sun Set</td>
-          <td style="{td_val}">{sunset.strftime("%H:%M")} (Local Mean Time)</td></tr>
+      <tr><td style="{td_key}">Sun Rise (Center)</td>
+          <td style="{td_val}">{sunrise.hour}H-{sunrise.minute:02d}M (Local Mean Time)</td></tr>
+      <tr><td style="{td_key}">Sun Set (Center)</td>
+          <td style="{td_val}">{sunset.hour}H-{sunset.minute:02d}M (Local Mean Time)</td></tr>
     </table>
   </td>
 </tr>
 </table>
 
-<table>
+<table width="100%">
 <tr valign="top">
-  <td align="left" width="{chart_w}" height="{chart_w}" style="padding-right:12px;">{rasi_chart}</td>
-  <td align="left" width="{chart_w}" height="{chart_w}">{nav_chart}</td>
+  <td align="left" width="{chart_w}" height="{chart_w}">{rasi_chart}</td>
+  <td align="right" width="{chart_w}" height="{chart_w}">{nav_chart}</td>
 </tr>
 <tr valign="top">
-  <td align="left" width="{chart_w}" style="padding-right:12px;padding-top:10px;">{bhava_chart}</td>
-  <td valign="top" style="padding-top:10px;">
+  <td align="left" width="{chart_w}" style="padding-top:10px;">{bhava_chart}</td>
+  <td align="right" valign="top" style="padding-top:10px;">
     <table style="border-collapse:collapse;">
       <tr>
         <th style="{td_hdr}"></th>

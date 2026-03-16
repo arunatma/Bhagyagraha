@@ -482,8 +482,8 @@ def main():
     # ── Download buttons + single-page HTML display ──
     single_html = generate_single_page_html(result, active_theme)
 
-    col1, col2, col3 = st.columns([1, 1, 4])
-    with col1:
+    _, btn_col1, btn_col2, _ = st.columns([2, 1, 1, 2])
+    with btn_col1:
         st.download_button(
             label="\u2b07 Single Page Download",
             data=single_html.encode("utf-8"),
@@ -491,7 +491,7 @@ def main():
             mime="text/html",
             use_container_width=True,
         )
-    with col2:
+    with btn_col2:
         try:
             pdf_bytes = generate_pdf(result)
             st.download_button(
@@ -504,7 +504,7 @@ def main():
         except Exception as _pdf_err:
             st.warning(f"PDF unavailable: {_pdf_err}")
 
-    components.html(single_html, height=750, scrolling=True)
+    components.html(single_html, height=1000, scrolling=False)
 
     # ── Footer ──
     st.markdown(
